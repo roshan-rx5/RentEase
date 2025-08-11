@@ -33,6 +33,11 @@ const bookingSchema = z.object({
   state: z.string().min(2, "State is required"),
   zipCode: z.string().min(4, "ZIP code is required"),
   
+  // Pickup and Return Addresses
+  pickupAddress: z.string().min(10, "Pickup address is required"),
+  returnAddress: z.string().optional(),
+  sameAddress: z.boolean().default(true),
+  
   // Rental Details
   startDate: z.date({ required_error: "Start date is required" }),
   endDate: z.date({ required_error: "End date is required" }),
@@ -66,10 +71,13 @@ export default function EnhancedBookingForm({ product, onComplete, className = "
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
-      fullName: user?.username || "",
+      fullName: user?.name || "",
       email: user?.email || "",
       quantity: 1,
       agreeToTerms: false,
+      sameAddress: true,
+      pickupAddress: "",
+      returnAddress: "",
     },
   });
 
@@ -119,6 +127,10 @@ export default function EnhancedBookingForm({ product, onComplete, className = "
           companyName: data.companyName,
           emergencyContact: data.emergencyContact,
         },
+        
+        // Pickup and Return Addresses
+        pickupAddress: data.pickupAddress,
+        returnAddress: data.sameAddress ? data.pickupAddress : data.returnAddress,
         
         // Rental details
         rentalPurpose: data.purpose,
@@ -172,6 +184,10 @@ export default function EnhancedBookingForm({ product, onComplete, className = "
         fieldsToValidate.push("address", "city", "state", "zipCode");
         break;
       case 3:
+        fieldsToValidate.push("pickupAddress");
+        if (!form.getValues("sameAddress")) {
+          fieldsToValidate.push("returnAddress");
+        }
         fieldsToValidate.push("startDate", "endDate", "quantity", "purpose");
         break;
       case 4:
@@ -480,6 +496,58 @@ export default function EnhancedBookingForm({ product, onComplete, className = "
                   placeholder="Any special requirements or instructions"
                   rows={2}
                 />
+              </div>
+
+              {/* Pickup and Return Address Section */}
+              <div className="space-y-4 mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <MapPin className="h-5 w-5 text-blue-500" />
+                  <h4 className="text-md font-semibold">Pickup & Return Address</h4>
+                </div>
+
+                <div>
+                  <Label htmlFor="pickupAddress">Pickup Address *</Label>
+                  <Textarea
+                    id="pickupAddress"
+                    {...form.register("pickupAddress")}
+                    placeholder="Where should we deliver the equipment?"
+                    rows={3}
+                  />
+                  {form.formState.errors.pickupAddress && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {form.formState.errors.pickupAddress.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="sameAddress"
+                    {...form.register("sameAddress")}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="sameAddress" className="text-sm">
+                    Return to the same address
+                  </Label>
+                </div>
+
+                {!form.watch("sameAddress") && (
+                  <div>
+                    <Label htmlFor="returnAddress">Return Address *</Label>
+                    <Textarea
+                      id="returnAddress"
+                      {...form.register("returnAddress")}
+                      placeholder="Where should we collect the equipment?"
+                      rows={3}
+                    />
+                    {form.formState.errors.returnAddress && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {form.formState.errors.returnAddress.message}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Price Summary */}
