@@ -232,6 +232,7 @@ export const notifications = pgTable("notifications", {
   isRead: boolean("is_read").default(false),
   relatedOrderId: uuid("related_order_id").references(() => orders.id),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Relations
@@ -422,6 +423,7 @@ export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({

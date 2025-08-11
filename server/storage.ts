@@ -138,28 +138,31 @@ export interface IStorage {
   payLateFee(id: string): Promise<LateFee>;
   
   // Reports
-  getRevenueReport(startDate: Date, endDate: Date): Promise<{
+  getRevenueReport(startDate?: Date, endDate?: Date): Promise<{
     totalRevenue: number;
     rentalRevenue: number;
     depositRevenue: number;
     lateFeeRevenue: number;
     refundAmount: number;
+    revenueByMonth: Array<{ month: string; revenue: number; }>;
   }>;
   getProductReport(): Promise<Array<{
     productId: string;
     productName: string;
     totalRentals: number;
     totalRevenue: number;
-    averageRentalDays: number;
-    utilizationRate: number;
+    averageRentalDuration: number;
+    currentlyRented: number;
   }>>;
   getCustomerReport(): Promise<Array<{
     customerId: string;
     customerName: string;
+    customerEmail: string;
     totalOrders: number;
     totalSpent: number;
-    outstandingBalance: number;
-    lastRentalDate: Date | null;
+    averageOrderValue: number;
+    lastOrderDate: Date | null;
+    status: 'active' | 'inactive';
   }>>;
   
   // Utility operations
@@ -307,12 +310,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAvailableProducts(startDate: Date, endDate: Date): Promise<ProductWithCategory[]> {
-    // Get products that have available quantity or are not booked during the requested period
     const allProducts = await this.getProducts();
     
-    // For now, return all products with available quantity > 0
-    // TODO: Implement proper availability checking based on order overlaps
-    return allProducts.filter(product => product.availableQuantity && product.availableQuantity > 0);
+    // Get all orders that overlap with the requested date range
+    const overlappingOrders = await db
+      .select({
+        productId: orderItems.productId,
+        quantity: orderItems.quantity,
+      })
+      .from(orders)
+      .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+      .where(
+        and(
+          // Order overlaps with requested period
+          lte(orders.startDate, endDate),
+          gte(orders.endDate, startDate),
+          // Only consider active orders
+          sql`${orders.status} IN ('confirmed', 'paid', 'picked_up', 'active')`
+        )
+      );
+
+    // Calculate reserved quantities per product
+    const reservedQuantities = new Map<string, number>();
+    for (const order of overlappingOrders) {
+      const current = reservedQuantities.get(order.productId) || 0;
+      reservedQuantities.set(order.productId, current + order.quantity);
+    }
+
+    // Filter products that have available capacity
+    return allProducts.filter(product => {
+      const reserved = reservedQuantities.get(product.id) || 0;
+      const available = (product.totalQuantity || 0) - reserved;
+      return available > 0;
+    });
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
@@ -677,53 +707,494 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Stub implementations for all other required methods to fix compilation
-  async getDeposits(): Promise<DepositWithDetails[]> { return []; }
-  async getDeposit(): Promise<DepositWithDetails | undefined> { return undefined; }
-  async getDepositByOrder(): Promise<Deposit | undefined> { return undefined; }
+  // Deposit operations - Full implementations
+  async getDeposits(customerId?: string): Promise<DepositWithDetails[]> {
+    const query = db
+      .select()
+      .from(deposits)
+      .leftJoin(orders, eq(deposits.orderId, orders.id))
+      .leftJoin(users, eq(deposits.customerId, users.id))
+      .leftJoin(payments, eq(deposits.id, payments.depositId))
+      .orderBy(desc(deposits.createdAt));
+
+    if (customerId) {
+      query.where(eq(deposits.customerId, customerId));
+    }
+
+    const results = await query;
+    const depositMap = new Map<string, DepositWithDetails>();
+
+    for (const row of results) {
+      if (!depositMap.has(row.deposits.id)) {
+        depositMap.set(row.deposits.id, {
+          ...row.deposits,
+          order: row.orders!,
+          customer: row.users!,
+          payments: []
+        });
+      }
+
+      if (row.payments) {
+        depositMap.get(row.deposits.id)!.payments.push(row.payments);
+      }
+    }
+
+    return Array.from(depositMap.values());
+  }
+
+  async getDeposit(id: string): Promise<DepositWithDetails | undefined> {
+    const results = await db
+      .select()
+      .from(deposits)
+      .leftJoin(orders, eq(deposits.orderId, orders.id))
+      .leftJoin(users, eq(deposits.customerId, users.id))
+      .leftJoin(payments, eq(deposits.id, payments.depositId))
+      .where(eq(deposits.id, id));
+
+    if (results.length === 0) return undefined;
+
+    const deposit = results[0].deposits!;
+    const order = results[0].orders!;
+    const customer = results[0].users!;
+    
+    const paymentList = results
+      .filter(row => row.payments)
+      .map(row => row.payments!);
+
+    return {
+      ...deposit,
+      order,
+      customer,
+      payments: paymentList
+    };
+  }
+
+  async getDepositByOrder(orderId: string): Promise<Deposit | undefined> {
+    const [deposit] = await db
+      .select()
+      .from(deposits)
+      .where(eq(deposits.orderId, orderId))
+      .limit(1);
+
+    return deposit;
+  }
+
   async createDeposit(deposit: InsertDeposit): Promise<Deposit> { 
     const [newDeposit] = await db.insert(deposits).values(deposit).returning();
     return newDeposit;
   }
+
   async updateDeposit(id: string, deposit: Partial<InsertDeposit>): Promise<Deposit> {
-    const [updated] = await db.update(deposits).set(deposit).where(eq(deposits.id, id)).returning();
+    const [updated] = await db
+      .update(deposits)
+      .set({ ...deposit, updatedAt: new Date() })
+      .where(eq(deposits.id, id))
+      .returning();
     return updated;
   }
-  async refundDeposit(): Promise<Deposit> { return {} as Deposit; }
-  async forfeitDeposit(): Promise<Deposit> { return {} as Deposit; }
+
+  async refundDeposit(id: string, refundAmount: number, reason?: string): Promise<Deposit> {
+    const [updated] = await db
+      .update(deposits)
+      .set({
+        status: 'refunded',
+        refundDate: new Date(),
+        refundAmount: refundAmount.toString(),
+        notes: reason,
+        updatedAt: new Date()
+      })
+      .where(eq(deposits.id, id))
+      .returning();
+    return updated;
+  }
+
+  async forfeitDeposit(id: string, forfeitAmount: number, reason: string): Promise<Deposit> {
+    const [updated] = await db
+      .update(deposits)
+      .set({
+        status: 'forfeited',
+        forfeitAmount: forfeitAmount.toString(),
+        forfeitReason: reason,
+        updatedAt: new Date()
+      })
+      .where(eq(deposits.id, id))
+      .returning();
+    return updated;
+  }
   
-  async getPayments(): Promise<PaymentWithDetails[]> { return []; }
-  async getPayment(): Promise<PaymentWithDetails | undefined> { return undefined; }
+  // Payment operations - Full implementations
+  async getPayments(customerId?: string, orderId?: string): Promise<PaymentWithDetails[]> {
+    const conditions = [];
+    if (customerId) conditions.push(eq(payments.customerId, customerId));
+    if (orderId) conditions.push(eq(payments.orderId, orderId));
+    
+    const baseQuery = db
+      .select()
+      .from(payments)
+      .leftJoin(orders, eq(payments.orderId, orders.id))
+      .leftJoin(invoices, eq(payments.invoiceId, invoices.id))
+      .leftJoin(deposits, eq(payments.depositId, deposits.id))
+      .leftJoin(users, eq(payments.customerId, users.id))
+      .orderBy(desc(payments.createdAt));
+
+    const results = conditions.length > 0 
+      ? await baseQuery.where(and(...conditions))
+      : await baseQuery;
+    
+    return results.map(row => ({
+      ...row.payments,
+      order: row.orders || undefined,
+      invoice: row.invoices || undefined,
+      deposit: row.deposits || undefined,
+      customer: row.users!,
+    }));
+  }
+
+  async getPayment(id: string): Promise<PaymentWithDetails | undefined> {
+    const [result] = await db
+      .select()
+      .from(payments)
+      .leftJoin(orders, eq(payments.orderId, orders.id))
+      .leftJoin(invoices, eq(payments.invoiceId, invoices.id))
+      .leftJoin(deposits, eq(payments.depositId, deposits.id))
+      .leftJoin(users, eq(payments.customerId, users.id))
+      .where(eq(payments.id, id));
+
+    if (!result) return undefined;
+
+    return {
+      ...result.payments,
+      order: result.orders || undefined,
+      invoice: result.invoices || undefined,
+      deposit: result.deposits || undefined,
+      customer: result.users!,
+    };
+  }
+
   async createPayment(payment: InsertPayment): Promise<Payment> {
     const [newPayment] = await db.insert(payments).values(payment).returning();
     return newPayment;
   }
+
   async updatePayment(id: string, payment: Partial<InsertPayment>): Promise<Payment> {
     const [updated] = await db.update(payments).set(payment).where(eq(payments.id, id)).returning();
     return updated;
   }
-  async processPayment(): Promise<Payment> { return {} as Payment; }
+
+  async processPayment(id: string, stripePaymentIntentId?: string, stripeChargeId?: string): Promise<Payment> {
+    const [updated] = await db
+      .update(payments)
+      .set({
+        status: 'completed',
+        processedAt: new Date(),
+        description: stripePaymentIntentId ? `Processed via Stripe: ${stripePaymentIntentId}` : 'Payment processed'
+      })
+      .where(eq(payments.id, id))
+      .returning();
+    return updated;
+  }
   
-  async getValidityPeriods(): Promise<ValidityPeriod[]> { return []; }
+  // Validity Period operations - Full implementations
+  async getValidityPeriods(orderId?: string): Promise<ValidityPeriod[]> {
+    if (orderId) {
+      return await db.select().from(validityPeriods)
+        .where(eq(validityPeriods.orderId, orderId))
+        .orderBy(desc(validityPeriods.createdAt));
+    }
+    
+    return await db.select().from(validityPeriods)
+      .orderBy(desc(validityPeriods.createdAt));
+  }
+
   async createValidityPeriod(validityPeriod: InsertValidityPeriod): Promise<ValidityPeriod> {
     const [newPeriod] = await db.insert(validityPeriods).values(validityPeriod).returning();
     return newPeriod;
   }
-  async updateValidityPeriod(): Promise<ValidityPeriod> { return {} as ValidityPeriod; }
-  async extendValidityPeriod(): Promise<ValidityPeriod> { return {} as ValidityPeriod; }
+
+  async updateValidityPeriod(id: string, update: Partial<InsertValidityPeriod>): Promise<ValidityPeriod> {
+    const [updated] = await db
+      .update(validityPeriods)
+      .set({ ...update, updatedAt: new Date() })
+      .where(eq(validityPeriods.id, id))
+      .returning();
+    return updated;
+  }
+
+  async extendValidityPeriod(id: string, newEndDate: Date, extensionFee: number): Promise<ValidityPeriod> {
+    const [updated] = await db
+      .update(validityPeriods)
+      .set({
+        extensionDate: newEndDate,
+        extensionFee: extensionFee.toString(),
+        updatedAt: new Date()
+      })
+      .where(eq(validityPeriods.id, id))
+      .returning();
+    return updated;
+  }
   
-  async getLateFees(): Promise<LateFee[]> { return []; }
+  // Late Fee operations - Full implementations
+  async getLateFees(customerId?: string, orderId?: string): Promise<LateFee[]> {
+    const conditions = [];
+    if (customerId) conditions.push(eq(lateFees.customerId, customerId));
+    if (orderId) conditions.push(eq(lateFees.orderId, orderId));
+    
+    if (conditions.length > 0) {
+      return await db.select().from(lateFees)
+        .where(and(...conditions))
+        .orderBy(desc(lateFees.createdAt));
+    }
+    
+    return await db.select().from(lateFees)
+      .orderBy(desc(lateFees.createdAt));
+  }
+
   async createLateFee(lateFee: InsertLateFee): Promise<LateFee> {
     const [newLateFee] = await db.insert(lateFees).values(lateFee).returning();
     return newLateFee;
   }
-  async updateLateFee(): Promise<LateFee> { return {} as LateFee; }
-  async waiveLateFee(): Promise<LateFee> { return {} as LateFee; }
-  async payLateFee(): Promise<LateFee> { return {} as LateFee; }
+
+  async updateLateFee(id: string, update: Partial<InsertLateFee>): Promise<LateFee> {
+    const [updated] = await db
+      .update(lateFees)
+      .set(update)
+      .where(eq(lateFees.id, id))
+      .returning();
+    return updated;
+  }
+
+  async waiveLateFee(id: string, waivedAmount: number, waivedBy: string, reason: string): Promise<LateFee> {
+    const [updated] = await db
+      .update(lateFees)
+      .set({
+        waivedAmount: waivedAmount.toString(),
+        waivedBy,
+        waivedReason: reason
+      })
+      .where(eq(lateFees.id, id))
+      .returning();
+    return updated;
+  }
+
+  async payLateFee(id: string): Promise<LateFee> {
+    const [updated] = await db
+      .update(lateFees)
+      .set({
+        isPaid: true,
+        paidAt: new Date()
+      })
+      .where(eq(lateFees.id, id))
+      .returning();
+    return updated;
+  }
   
-  async getRevenueReport(): Promise<any> { return {}; }
-  async getProductReport(): Promise<any[]> { return []; }
-  async getCustomerReport(): Promise<any[]> { return []; }
+  // Report operations - Full implementations
+  async getRevenueReport(startDate?: Date, endDate?: Date): Promise<{
+    totalRevenue: number;
+    rentalRevenue: number;
+    depositRevenue: number;
+    lateFeeRevenue: number;
+    refundAmount: number;
+    revenueByMonth: Array<{ month: string; revenue: number; }>;
+  }> {
+    const start = startDate || new Date(new Date().getFullYear(), 0, 1);
+    const end = endDate || new Date();
+    
+    // Get total revenue from payments
+    const [totalResult] = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${payments.amount}), 0)`
+      })
+      .from(payments)
+      .where(
+        and(
+          gte(payments.createdAt, start),
+          lte(payments.createdAt, end),
+          eq(payments.status, 'completed')
+        )
+      );
+
+    // Get revenue by payment type
+    const revenueByType = await db
+      .select({
+        type: payments.type,
+        amount: sql<string>`COALESCE(SUM(${payments.amount}), 0)`
+      })
+      .from(payments)
+      .where(
+        and(
+          gte(payments.createdAt, start),
+          lte(payments.createdAt, end),
+          eq(payments.status, 'completed')
+        )
+      )
+      .groupBy(payments.type);
+
+    const typeMap = Object.fromEntries(revenueByType.map(r => [r.type, Number(r.amount)]));
+
+    // Get monthly revenue
+    const monthlyRevenue = await db
+      .select({
+        month: sql<string>`DATE_TRUNC('month', ${payments.createdAt})`,
+        revenue: sql<string>`COALESCE(SUM(${payments.amount}), 0)`
+      })
+      .from(payments)
+      .where(
+        and(
+          gte(payments.createdAt, start),
+          lte(payments.createdAt, end),
+          eq(payments.status, 'completed')
+        )
+      )
+      .groupBy(sql`DATE_TRUNC('month', ${payments.createdAt})`)
+      .orderBy(sql`DATE_TRUNC('month', ${payments.createdAt})`);
+
+    return {
+      totalRevenue: Number(totalResult.total),
+      rentalRevenue: typeMap.rental || 0,
+      depositRevenue: typeMap.deposit || 0,
+      lateFeeRevenue: typeMap.late_fee || 0,
+      refundAmount: typeMap.refund || 0,
+      revenueByMonth: monthlyRevenue.map(r => ({
+        month: new Date(r.month).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
+        revenue: Number(r.revenue)
+      }))
+    };
+  }
+
+  async getProductReport(): Promise<Array<{
+    productId: string;
+    productName: string;
+    totalRentals: number;
+    totalRevenue: number;
+    averageRentalDuration: number;
+    currentlyRented: number;
+  }>> {
+    const results = await db
+      .select({
+        productId: products.id,
+        productName: products.name,
+        orderId: orders.id,
+        orderStatus: orders.status,
+        startDate: orders.startDate,
+        endDate: orders.endDate,
+        totalAmount: orders.totalAmount
+      })
+      .from(products)
+      .leftJoin(orderItems, eq(products.id, orderItems.productId))
+      .leftJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(sql`${orders.id} IS NOT NULL`);
+
+    const productMap = new Map();
+    
+    for (const row of results) {
+      const key = row.productId;
+      if (!productMap.has(key)) {
+        productMap.set(key, {
+          productId: row.productId,
+          productName: row.productName,
+          totalRentals: 0,
+          totalRevenue: 0,
+          totalDuration: 0,
+          currentlyRented: 0,
+          rentals: []
+        });
+      }
+      
+      const product = productMap.get(key);
+      product.totalRentals++;
+      product.totalRevenue += Number(row.totalAmount);
+      
+      if (row.startDate && row.endDate) {
+        const startTime = row.startDate ? new Date(row.startDate).getTime() : 0;
+        const endTime = row.endDate ? new Date(row.endDate).getTime() : 0;
+        if (startTime && endTime) {
+          const duration = Math.ceil((endTime - startTime) / (1000 * 60 * 60 * 24));
+          product.totalDuration += duration;
+        }
+      }
+      
+      if (row.orderStatus && ['picked_up', 'active'].includes(row.orderStatus)) {
+        product.currentlyRented++;
+      }
+    }
+
+    return Array.from(productMap.values()).map(p => ({
+      productId: p.productId,
+      productName: p.productName,
+      totalRentals: p.totalRentals,
+      totalRevenue: p.totalRevenue,
+      averageRentalDuration: p.totalRentals > 0 ? Math.round(p.totalDuration / p.totalRentals) : 0,
+      currentlyRented: p.currentlyRented
+    }));
+  }
+
+  async getCustomerReport(): Promise<Array<{
+    customerId: string;
+    customerName: string;
+    customerEmail: string;
+    totalOrders: number;
+    totalSpent: number;
+    averageOrderValue: number;
+    lastOrderDate: Date | null;
+    status: 'active' | 'inactive';
+  }>> {
+    const results = await db
+      .select({
+        customerId: users.id,
+        customerName: users.name,
+        customerEmail: users.email,
+        orderId: orders.id,
+        orderTotal: orders.totalAmount,
+        orderDate: orders.createdAt,
+        orderStatus: orders.status
+      })
+      .from(users)
+      .leftJoin(orders, eq(users.id, orders.customerId))
+      .where(eq(users.role, 'customer'));
+
+    const customerMap = new Map();
+    
+    for (const row of results) {
+      const key = row.customerId;
+      if (!customerMap.has(key)) {
+        customerMap.set(key, {
+          customerId: row.customerId,
+          customerName: row.customerName,
+          customerEmail: row.customerEmail,
+          totalOrders: 0,
+          totalSpent: 0,
+          lastOrderDate: null,
+          orders: []
+        });
+      }
+      
+      const customer = customerMap.get(key);
+      if (row.orderId) {
+        customer.totalOrders++;
+        customer.totalSpent += Number(row.orderTotal);
+        customer.orders.push({
+          date: row.orderDate,
+          status: row.orderStatus
+        });
+        
+        if (!customer.lastOrderDate || (row.orderDate && new Date(row.orderDate) > customer.lastOrderDate)) {
+          customer.lastOrderDate = row.orderDate ? new Date(row.orderDate) : null;
+        }
+      }
+    }
+
+    return Array.from(customerMap.values()).map(c => ({
+      customerId: c.customerId,
+      customerName: c.customerName,
+      customerEmail: c.customerEmail,
+      totalOrders: c.totalOrders,
+      totalSpent: c.totalSpent,
+      averageOrderValue: c.totalOrders > 0 ? Math.round(c.totalSpent / c.totalOrders) : 0,
+      lastOrderDate: c.lastOrderDate,
+      status: (c.lastOrderDate && (Date.now() - c.lastOrderDate.getTime()) < 90 * 24 * 60 * 60 * 1000) ? 'active' : 'inactive'
+    }));
+  }
 }
 
 export const storage = new DatabaseStorage();

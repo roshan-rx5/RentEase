@@ -88,12 +88,44 @@ export default function ProductDetail() {
     });
   };
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast({
-      title: "Link copied",
-      description: "Product link copied to clipboard",
-    });
+  const handleShare = async () => {
+    const shareData = {
+      title: product?.name || 'Rental Product',
+      text: `Check out this rental product: ${product?.name}`,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        toast({
+          title: "Shared successfully",
+          description: "Product shared successfully",
+        });
+      } catch (error) {
+        // User cancelled sharing, fallback to copy
+        navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: "Link copied",
+          description: "Product link copied to clipboard",
+        });
+      }
+    } else {
+      // Fallback to copy to clipboard
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: "Link copied",
+          description: "Product link copied to clipboard",
+        });
+      } catch (error) {
+        toast({
+          title: "Sharing failed",
+          description: "Unable to share or copy link",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const calculatedPrice = calculatePrice();
@@ -293,7 +325,26 @@ export default function ProductDetail() {
                     onChange={(e) => setCouponCode(e.target.value)}
                     className="flex-1"
                   />
-                  <Button variant="outline">Apply</Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      if (couponCode.trim()) {
+                        toast({
+                          title: "Coupon Applied",
+                          description: `Coupon "${couponCode}" has been applied successfully`,
+                        });
+                        setCouponCode("");
+                      } else {
+                        toast({
+                          title: "Invalid Coupon",
+                          description: "Please enter a valid coupon code",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    Apply
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -307,16 +358,31 @@ export default function ProductDetail() {
               <CardTitle>Product descriptions</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700">{product.description}</p>
-              <div className="mt-4 text-sm text-gray-600">
-                <p>Heavy duty angle grinder for cutting and grinding metal</p>
-                <p className="mt-2">•••••</p>
-                <p className="mt-2">•••••</p>
-                <p className="mt-2">•••••</p>
-                <Button variant="link" className="p-0 text-blue-600 mt-2">
-                  Read More &gt;
-                </Button>
-              </div>
+              <p className="text-gray-700">{product.description || "No description available."}</p>
+              
+              {product.description && (
+                <div className="mt-4 text-sm text-gray-600">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-gray-900">Key Features:</h4>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Professional grade equipment</li>
+                      <li>Well-maintained and regularly serviced</li>
+                      <li>Includes necessary accessories</li>
+                      <li>Safety instructions provided</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="mt-4 space-y-2">
+                    <h4 className="font-medium text-gray-900">Rental Terms:</h4>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Security deposit required</li>
+                      <li>Late return fees may apply</li>
+                      <li>Damage assessment upon return</li>
+                      <li>Pickup and delivery available</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
