@@ -76,7 +76,7 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">Total Orders</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stats?.totalOrders || Array.isArray(orders) ? orders.length : 0}
+                    {Array.isArray(orders) ? orders.length : 0}
                   </p>
                 </div>
                 <div className="h-12 w-12 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -97,7 +97,7 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">Total Revenue</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
-                    ₹{stats?.totalRevenue?.toLocaleString() || '0'}
+                    {(stats as any)?.monthlyRevenue || '₹0'}
                   </p>
                 </div>
                 <div className="h-12 w-12 bg-green-100 rounded-xl flex items-center justify-center">
@@ -118,7 +118,7 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">Active Rentals</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stats?.activeRentals || recentOrders.filter(order => order.status === 'active').length}
+                    {(stats as any)?.activeRentals || recentOrders.filter((order: any) => order.status === 'active').length}
                   </p>
                 </div>
                 <div className="h-12 w-12 bg-orange-100 rounded-xl flex items-center justify-center">
@@ -224,7 +224,7 @@ export default function AdminDashboard() {
                       <div className="text-right">
                         <p className="font-medium text-gray-900">₹{order.totalAmount}</p>
                         <p className="text-sm text-gray-600">
-                          {new Date(order.createdAt).toLocaleDateString()}
+                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
                         </p>
                       </div>
                       <Badge className={getStatusColor(order.status)}>

@@ -154,6 +154,7 @@ export default function Register() {
                       <FormControl>
                         <Input
                           {...field}
+                          value={field.value || ''}
                           type="tel"
                           placeholder="e.g. 9098980900"
                           className="w-full"

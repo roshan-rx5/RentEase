@@ -76,17 +76,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </button>
               <div className="flex items-center space-x-2">
                 <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center">
-                  {user?.profileImageUrl ? (
-                    <img 
-                      src={user.profileImageUrl} 
-                      alt="User avatar"
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-white font-semibold text-sm">
-                      {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
-                    </span>
-                  )}
+                  <span className="text-white font-semibold text-sm">
+                    {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
+                  </span>
                 </div>
                 <span className="text-sm font-medium text-gray-700">
                   {user?.name || user?.email}
