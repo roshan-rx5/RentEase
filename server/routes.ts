@@ -234,13 +234,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Order routes
   app.get('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const user = await storage.getUser(userId);
       let orders;
       
       if (user?.role === 'admin') {
         orders = await storage.getOrders();
       } else {
-        orders = await storage.getOrders(req.user.claims.sub);
+        orders = await storage.getOrders(userId);
       }
       
       res.json(orders);
