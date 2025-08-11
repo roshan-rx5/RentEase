@@ -15,7 +15,9 @@ import {
   insertInvoiceSchema,
   insertDepositSchema,
   insertPaymentSchema,
+  verifyOtpSchema,
 } from "@shared/schema";
+import { createAndSendOtp, verifyUserOtp } from "./otpService";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -41,11 +43,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.createUser({
         ...userData,
         password: hashedPassword,
+        isVerified: false, // User needs OTP verification
       });
+
+      // Send OTP for signup verification
+      const otpSent = await createAndSendOtp(user.id, user.email, 'signup');
+      if (!otpSent) {
+        return res.status(500).json({ message: "Failed to send verification OTP" });
+      }
 
       // Remove password from response
       const { password, ...userResponse } = user;
-      res.status(201).json(userResponse);
+      res.status(201).json({ 
+        ...userResponse, 
+        message: "Registration successful. Please check your email for OTP verification.",
+        requiresOtp: true 
+      });
     } catch (error) {
       console.error("Error creating user:", error);
       if (error instanceof z.ZodError) {
@@ -67,14 +80,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(401).json({ message: info?.message || "Invalid credentials" });
         }
         
-        req.logIn(user, (err) => {
+        req.logIn(user, async (err) => {
           if (err) {
             return res.status(500).json({ message: "Login session error" });
           }
           
+          // Send OTP for login verification
+          const otpSent = await createAndSendOtp(user.id, user.email, 'login');
+          if (!otpSent) {
+            return res.status(500).json({ message: "Failed to send login OTP" });
+          }
+          
           // Remove password from response
           const { password, ...userResponse } = user;
-          res.json(userResponse);
+          res.json({ 
+            ...userResponse, 
+            message: "Login successful. Please check your email for OTP verification.",
+            requiresOtp: true 
+          });
         });
       })(req, res, next);
     } catch (error) {
@@ -103,6 +126,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // OTP verification route
+  app.post('/api/auth/verify-otp', async (req, res) => {
+    try {
+      const validatedData = verifyOtpSchema.parse(req.body);
+      const { userId, otp, purpose } = validatedData;
+      
+      const isValid = await verifyUserOtp(userId, otp, purpose);
+      
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid or expired OTP" });
+      }
+      
+      // If verification successful, get updated user
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Remove password from response
+      const { password, ...userResponse } = user;
+      res.json({ 
+        ...userResponse, 
+        message: "OTP verified successfully",
+        isVerified: true 
+      });
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("OTP verification error:", error);
+      res.status(500).json({ message: "OTP verification failed" });
+    }
+  });
+
+  // Resend OTP route
+  app.post('/api/auth/resend-otp', async (req, res) => {
+    try {
+      const { userId, purpose } = req.body;
+      
+      if (!userId || !purpose) {
+        return res.status(400).json({ message: "User ID and purpose are required" });
+      }
+      
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const otpSent = await createAndSendOtp(userId, user.email, purpose);
+      if (!otpSent) {
+        return res.status(500).json({ message: "Failed to resend OTP" });
+      }
+      
+      res.json({ message: "OTP resent successfully" });
+      
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+      res.status(500).json({ message: "Failed to resend OTP" });
     }
   });
 
@@ -499,7 +584,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
 
-      if (req.user?.role !== 'admin' && order.customerId !== req.user?.id) {
+      const user = req.user as any;
+      if (user?.role !== 'admin' && order.customerId !== user?.id) {
         return res.status(403).json({ message: "Access denied" });
       }
 

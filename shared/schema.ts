@@ -61,8 +61,20 @@ export const users = pgTable("users", {
   phone: varchar("phone"),
   address: text("address"),
   role: userRoleEnum("role").default('customer').notNull(),
+  isVerified: boolean("is_verified").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// OTP Verifications table
+export const otpVerifications = pgTable("otp_verifications", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  otp: varchar("otp", { length: 4 }).notNull(),
+  purpose: varchar("purpose", { length: 20 }).notNull(), // login, signup, password_reset
+  expiresAt: timestamp("expires_at").notNull(),
+  isUsed: boolean("is_used").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Product categories
@@ -226,6 +238,14 @@ export const notifications = pgTable("notifications", {
 export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
   notifications: many(notifications),
+  otpVerifications: many(otpVerifications),
+}));
+
+export const otpVerificationsRelations = relations(otpVerifications, ({ one }) => ({
+  user: one(users, {
+    fields: [otpVerifications.userId],
+    references: [users.id],
+  }),
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -366,6 +386,17 @@ export const loginUserSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const insertOtpSchema = createInsertSchema(otpVerifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const verifyOtpSchema = z.object({
+  otp: z.string().length(4, "OTP must be 4 digits"),
+  userId: z.string().uuid("Invalid user ID"),
+  purpose: z.string().min(1, "Purpose is required"),
+});
+
 export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
   createdAt: true,
@@ -446,6 +477,9 @@ export type ValidityPeriod = typeof validityPeriods.$inferSelect;
 export type InsertValidityPeriod = z.infer<typeof insertValidityPeriodSchema>;
 export type LateFee = typeof lateFees.$inferSelect;
 export type InsertLateFee = z.infer<typeof insertLateFeeSchema>;
+export type OtpVerification = typeof otpVerifications.$inferSelect;
+export type InsertOtp = z.infer<typeof insertOtpSchema>;
+export type VerifyOtp = z.infer<typeof verifyOtpSchema>;
 
 // Extended types with relations
 export type OrderWithItems = Order & {

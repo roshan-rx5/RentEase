@@ -11,11 +11,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { registerUserSchema, type RegisterUser } from "@shared/schema";
+import { OtpVerification } from "./otp-verification";
 
 export default function Register() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [showOtpVerification, setShowOtpVerification] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
 
   const form = useForm<RegisterUser>({
     resolver: zodResolver(registerUserSchema),
@@ -32,12 +35,23 @@ export default function Register() {
     mutationFn: async (data: RegisterUser) => {
       return await apiRequest("/api/auth/register", "POST", data);
     },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Account created successfully! Please log in.",
-      });
-      setLocation("/login");
+    onSuccess: (user) => {
+      if (user.requiresOtp) {
+        // Show OTP verification screen
+        setUserData(user);
+        setShowOtpVerification(true);
+        toast({
+          title: "Registration Successful",
+          description: user.message || "Please verify your email with the OTP code",
+        });
+      } else {
+        // Direct registration success (backward compatibility)
+        toast({
+          title: "Success",
+          description: "Account created successfully! Please log in.",
+        });
+        setLocation("/login");
+      }
     },
     onError: (error: any) => {
       toast({
@@ -70,6 +84,26 @@ export default function Register() {
   const onSubmit = (data: RegisterUser) => {
     registerMutation.mutate(data);
   };
+
+  const handleOtpVerified = (verifiedUser: any) => {
+    toast({
+      title: "Email Verified",
+      description: "Your account has been verified successfully. Please log in.",
+    });
+    setLocation("/login");
+  };
+
+  // Show OTP verification if needed
+  if (showOtpVerification && userData) {
+    return (
+      <OtpVerification
+        userId={userData.id}
+        email={userData.email}
+        purpose="signup"
+        onVerified={handleOtpVerified}
+      />
+    );
+  }
 
   const getPasswordStrengthText = () => {
     if (passwordStrength <= 25) return "weak";

@@ -10,11 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { loginUserSchema, type LoginUser } from "@shared/schema";
+import { OtpVerification } from "./otp-verification";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showOtpVerification, setShowOtpVerification] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
 
   const form = useForm<LoginUser>({
     resolver: zodResolver(loginUserSchema),
@@ -29,17 +32,28 @@ export default function Login() {
       return await apiRequest("/api/auth/login", "POST", data);
     },
     onSuccess: (user) => {
-      toast({
-        title: "Success",
-        description: "Logged in successfully",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      
-      // Redirect based on user role
-      if (user.role === 'admin') {
-        setLocation("/admin");
+      if (user.requiresOtp) {
+        // Show OTP verification screen
+        setUserData(user);
+        setShowOtpVerification(true);
+        toast({
+          title: "OTP Sent",
+          description: user.message || "Please check your email for verification code",
+        });
       } else {
-        setLocation("/");
+        // Direct login (backward compatibility)
+        toast({
+          title: "Success",
+          description: "Logged in successfully",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        
+        // Redirect based on user role
+        if (user.role === 'admin') {
+          setLocation("/admin");
+        } else {
+          setLocation("/");
+        }
       }
     },
     onError: (error: any) => {
@@ -54,6 +68,33 @@ export default function Login() {
   const onSubmit = (data: LoginUser) => {
     loginMutation.mutate(data);
   };
+
+  const handleOtpVerified = (verifiedUser: any) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    toast({
+      title: "Success",
+      description: "Login verified successfully",
+    });
+    
+    // Redirect based on user role
+    if (verifiedUser.role === 'admin') {
+      setLocation("/admin");
+    } else {
+      setLocation("/");
+    }
+  };
+
+  // Show OTP verification if needed
+  if (showOtpVerification && userData) {
+    return (
+      <OtpVerification
+        userId={userData.id}
+        email={userData.email}
+        purpose="login"
+        onVerified={handleOtpVerified}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

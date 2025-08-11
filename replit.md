@@ -9,7 +9,8 @@ RentFlow is a comprehensive rental management platform that provides both admin 
 - **Quick Rent Widget**: Instant booking from catalog with date selection and pricing
 - **Enhanced User Experience**: Modern hero sections, live status badges, and hover interactions
 - **Complete Billing System**: Automated email confirmations, rental tickets, and payment receipts
-- **Stripe Payment Integration**: Secure checkout flow with order success pages
+- **4-Digit OTP Verification**: Two-factor authentication for login and signup sessions
+- **Stripe Integration Removed**: Simplified payment system without external processors
 - **Email Automation**: SendGrid integration for order confirmations and payment receipts
 
 ## User Preferences

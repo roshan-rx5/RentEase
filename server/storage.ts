@@ -10,6 +10,7 @@ import {
   payments,
   validityPeriods,
   lateFees,
+  otpVerifications,
   type User,
   type UpsertUser,
   type Category,
@@ -32,6 +33,8 @@ import {
   type InsertValidityPeriod,
   type LateFee,
   type InsertLateFee,
+  type OtpVerification,
+  type InsertOtp,
   type OrderWithItems,
   type ProductWithCategory,
   type InvoiceWithDetails,
@@ -48,6 +51,12 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: UpsertUser): Promise<User>;
   upsertUser(user: UpsertUser, id?: string): Promise<User>;
+  updateUser(id: string, user: Partial<UpsertUser>): Promise<User>;
+  
+  // OTP operations
+  createOtp(otp: InsertOtp): Promise<OtpVerification>;
+  verifyOtp(userId: string, otp: string, purpose: string): Promise<boolean>;
+  cleanupExpiredOtps(): Promise<void>;
   
   // Category operations
   getCategories(): Promise<Category[]>;
@@ -191,6 +200,55 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  async updateUser(id: string, user: Partial<UpsertUser>): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ ...user, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  // OTP operations
+  async createOtp(otp: InsertOtp): Promise<OtpVerification> {
+    const [newOtp] = await db.insert(otpVerifications).values(otp).returning();
+    return newOtp;
+  }
+
+  async verifyOtp(userId: string, otp: string, purpose: string): Promise<boolean> {
+    const [otpRecord] = await db
+      .select()
+      .from(otpVerifications)
+      .where(
+        and(
+          eq(otpVerifications.userId, userId),
+          eq(otpVerifications.otp, otp),
+          eq(otpVerifications.purpose, purpose),
+          eq(otpVerifications.isUsed, false),
+          gte(otpVerifications.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (!otpRecord) {
+      return false;
+    }
+
+    // Mark OTP as used
+    await db
+      .update(otpVerifications)
+      .set({ isUsed: true })
+      .where(eq(otpVerifications.id, otpRecord.id));
+
+    return true;
+  }
+
+  async cleanupExpiredOtps(): Promise<void> {
+    await db
+      .delete(otpVerifications)
+      .where(lte(otpVerifications.expiresAt, new Date()));
   }
 
   // Category operations
