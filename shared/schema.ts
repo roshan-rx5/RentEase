@@ -384,6 +384,28 @@ export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  totalQuantity: z.union([z.string(), z.number()]).transform((val) => 
+    typeof val === 'number' ? val : parseInt(val)
+  ),
+  availableQuantity: z.union([z.string(), z.number()]).transform((val) => 
+    typeof val === 'number' ? val : parseInt(val)
+  ),
+  hourlyRate: z.union([z.string(), z.number(), z.null(), z.undefined()]).optional().transform((val) => 
+    val !== null && val !== undefined ? (typeof val === 'number' ? val.toString() : val) : val
+  ),
+  dailyRate: z.union([z.string(), z.number(), z.null(), z.undefined()]).optional().transform((val) => 
+    val !== null && val !== undefined ? (typeof val === 'number' ? val.toString() : val) : val
+  ),
+  weeklyRate: z.union([z.string(), z.number(), z.null(), z.undefined()]).optional().transform((val) => 
+    val !== null && val !== undefined ? (typeof val === 'number' ? val.toString() : val) : val
+  ),
+  monthlyRate: z.union([z.string(), z.number(), z.null(), z.undefined()]).optional().transform((val) => 
+    val !== null && val !== undefined ? (typeof val === 'number' ? val.toString() : val) : val
+  ),
+  securityDeposit: z.union([z.string(), z.number(), z.null(), z.undefined()]).optional().transform((val) => 
+    val !== null && val !== undefined ? (typeof val === 'number' ? val.toString() : val) : val
+  ),
 });
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
