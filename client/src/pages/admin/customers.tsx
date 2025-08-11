@@ -6,7 +6,7 @@ import AdminLayout from "@/components/layout/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { User } from "@shared/schema";
+import type { User, OrderWithItems } from "@shared/schema";
 
 export default function AdminCustomers() {
   const { toast } = useToast();
@@ -27,7 +27,7 @@ export default function AdminCustomers() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const { data: orders, isLoading: ordersLoading } = useQuery({
+  const { data: orders, isLoading: ordersLoading } = useQuery<OrderWithItems[]>({
     queryKey: ["/api/orders"],
     enabled: isAuthenticated,
   });
@@ -42,15 +42,15 @@ export default function AdminCustomers() {
 
   // Extract unique customers from orders
   const customers = orders ? Array.from(
-    new Map(orders.map(order => [order.customerId, order.customer])).values()
+    new Map(orders.map((order: OrderWithItems) => [order.customerId, order.customer])).values()
   ).filter(Boolean) as User[] : [];
 
   // Calculate customer stats
   const getCustomerStats = (customerId: string) => {
-    const customerOrders = orders?.filter(order => order.customerId === customerId) || [];
+    const customerOrders = orders?.filter((order: OrderWithItems) => order.customerId === customerId) || [];
     const totalOrders = customerOrders.length;
-    const totalSpent = customerOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0);
-    const activeOrders = customerOrders.filter(order => order.status === 'active').length;
+    const totalSpent = customerOrders.reduce((sum: number, order: OrderWithItems) => sum + Number(order.totalAmount), 0);
+    const activeOrders = customerOrders.filter((order: OrderWithItems) => order.status === 'active').length;
     
     return { totalOrders, totalSpent, activeOrders };
   };
@@ -97,21 +97,13 @@ export default function AdminCustomers() {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                          {customer.profileImageUrl ? (
-                            <img 
-                              src={customer.profileImageUrl} 
-                              alt={`${customer.firstName} ${customer.lastName}`}
-                              className="h-12 w-12 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-white font-semibold text-lg">
-                              {customer.firstName?.charAt(0) || customer.email?.charAt(0) || '?'}
-                            </span>
-                          )}
+                          <span className="text-white font-semibold text-lg">
+                            {customer.name?.charAt(0) || customer.email?.charAt(0) || '?'}
+                          </span>
                         </div>
                         <div>
                           <CardTitle className="text-lg">
-                            {customer.firstName} {customer.lastName}
+                            {customer.name}
                           </CardTitle>
                           <p className="text-sm text-gray-600">{customer.email}</p>
                           {customer.phone && (

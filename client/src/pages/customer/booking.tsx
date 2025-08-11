@@ -33,7 +33,7 @@ export default function CustomerBooking() {
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [couponCode, setCouponCode] = useState("");
 
-  const { data: product, isLoading: productLoading } = useQuery({
+  const { data: product, isLoading: productLoading } = useQuery<ProductWithCategory>({
     queryKey: ["/api/products", productId],
     enabled: !!productId,
   });
