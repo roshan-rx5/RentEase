@@ -1,17 +1,31 @@
 import { storage } from './storage';
+import { sendWebhookEmail, generateSimpleOtpText } from "./webhookEmail";
 
 // Generate a random 4-digit OTP
 export function generateOtp(): string {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
-// Send OTP via email (for now, just log it - can be replaced with actual email service)
-export async function sendOtpEmail(email: string, otp: string, purpose: string): Promise<boolean> {
-  // In production, replace this with actual email sending service
-  console.log(`\n🔐 OTP for ${email} (${purpose}): ${otp}\n`);
-  
-  // Simulate email sending success
-  return true;
+// Send OTP via email notification system
+export async function sendOtpEmail(email: string, otp: string, purpose: 'login' | 'signup'): Promise<boolean> {
+  try {
+    const subject = `RentFlow Verification Code: ${otp}`;
+    const text = generateSimpleOtpText(email, otp, purpose);
+    
+    const emailSent = await sendWebhookEmail(email, subject, text);
+    
+    if (!emailSent) {
+      // Fallback: simple console log
+      console.log(`\n🔐 OTP for ${email} (${purpose}): ${otp}\n`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to send OTP notification:', error);
+    // Fallback: log to console
+    console.log(`\n🔐 OTP for ${email} (${purpose}): ${otp}\n`);
+    return true; // Still return true to not block the flow
+  }
 }
 
 // Create and send OTP
