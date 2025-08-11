@@ -62,15 +62,7 @@ export default function CustomerCatalog() {
   }) || [];
 
   const handleBookProduct = (productId: string) => {
-    if (selectedDates.from && selectedDates.to) {
-      const params = new URLSearchParams({
-        startDate: selectedDates.from.toISOString(),
-        endDate: selectedDates.to.toISOString(),
-      });
-      setLocation(`/booking/${productId}?${params.toString()}`);
-    } else {
-      setLocation(`/booking/${productId}`);
-    }
+    setLocation(`/catalog/${productId}`);
   };
 
   return (
@@ -87,14 +79,14 @@ export default function CustomerCatalog() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Colors */}
+                {/* Rental Period Selection */}
                 <div>
-                  <h4 className="font-medium text-sm text-gray-700 mb-3">Colors</h4>
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-600">-</div>
-                    <div className="text-sm text-gray-600">-</div>
-                    <div className="text-sm text-gray-600">-</div>
-                  </div>
+                  <h4 className="font-medium text-sm text-gray-700 mb-3">Rental Period</h4>
+                  <RentalCalendar
+                    selected={selectedDates}
+                    onSelect={setSelectedDates}
+                    className="w-full"
+                  />
                 </div>
 
                 <Separator />
@@ -119,9 +111,14 @@ export default function CustomerCatalog() {
                         data-testid="price-max-input"
                       />
                     </div>
-                    <div className="text-sm text-gray-600">-</div>
-                    <div className="text-sm text-gray-600">-</div>
-                    <div className="text-sm text-gray-600">-</div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => setPriceRange({ min: "", max: "" })}
+                    >
+                      Clear Filters
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -262,8 +259,8 @@ export default function CustomerCatalog() {
                 ) : (
                   <div className="space-y-4" data-testid="products-list">
                     {filteredProducts.map((product: ProductWithCategory) => (
-                      <Card key={product.id} className="flex items-center p-4">
-                        <div className="w-20 h-20 bg-gray-100 rounded-lg mr-4 flex-shrink-0">
+                      <Card key={product.id} className="flex items-center p-4 hover:shadow-md transition-shadow">
+                        <div className="w-20 h-20 bg-gray-100 rounded-lg mr-4 flex-shrink-0 flex items-center justify-center">
                           {product.imageUrl ? (
                             <img 
                               src={product.imageUrl} 
@@ -271,25 +268,62 @@ export default function CustomerCatalog() {
                               className="w-full h-full object-cover rounded-lg"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400">
-                              <Grid3X3 className="h-8 w-8" />
-                            </div>
+                            <i className="fas fa-box text-2xl text-gray-400"></i>
                           )}
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-medium text-gray-900">{product.name}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{product.description}</p>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-semibold text-gray-900">₹{product.dailyRate || 0}</div>
-                          <Button 
-                            size="sm" 
-                            className="mt-2"
-                            onClick={() => handleBookProduct(product.id)}
-                            data-testid={`add-to-cart-${product.id}`}
-                          >
-                            Add to Cart
-                          </Button>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="text-lg font-semibold text-gray-900">{product.name}</h4>
+                              <p className="text-sm text-gray-600 mt-1">{product.description}</p>
+                              <div className="flex items-center gap-4 mt-2">
+                                {product.category && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {product.category.name}
+                                  </Badge>
+                                )}
+                                <Badge 
+                                  variant={product.availableQuantity && product.availableQuantity > 0 ? "default" : "destructive"}
+                                  className="text-xs"
+                                >
+                                  {product.availableQuantity && product.availableQuantity > 0
+                                    ? `${product.availableQuantity} Available` 
+                                    : "Out of Stock"
+                                  }
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="space-y-1">
+                                {product.hourlyRate && (
+                                  <div className="text-sm">
+                                    <span className="text-gray-500">Hourly:</span>
+                                    <span className="font-medium ml-1">₹{Number(product.hourlyRate)}/hr</span>
+                                  </div>
+                                )}
+                                {product.dailyRate && (
+                                  <div className="text-sm">
+                                    <span className="text-gray-500">Daily:</span>
+                                    <span className="font-medium ml-1">₹{Number(product.dailyRate)}/day</span>
+                                  </div>
+                                )}
+                                {product.weeklyRate && (
+                                  <div className="text-sm">
+                                    <span className="text-gray-500">Weekly:</span>
+                                    <span className="font-medium ml-1">₹{Number(product.weeklyRate)}/week</span>
+                                  </div>
+                                )}
+                              </div>
+                              <Button 
+                                onClick={() => handleBookProduct(product.id)}
+                                disabled={!product.availableQuantity || product.availableQuantity <= 0}
+                                size="sm"
+                                className="mt-3"
+                              >
+                                Book Now
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       </Card>
                     ))}

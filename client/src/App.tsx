@@ -16,6 +16,7 @@ import AdminInvoices from "@/pages/admin/invoices";
 import AdminTransfers from "@/pages/admin/transfers";
 import InvoicePayment from "@/pages/invoice-payment";
 import CustomerCatalog from "@/pages/customer/catalog";
+import ProductDetail from "@/pages/customer/product-detail";
 import CustomerBooking from "@/pages/customer/booking";
 import CustomerOrders from "@/pages/customer/orders";
 import CustomerWishlist from "@/pages/customer/wishlist";
@@ -58,6 +59,7 @@ function Router() {
             <>
               <Route path="/" component={CustomerCatalog} />
               <Route path="/catalog" component={CustomerCatalog} />
+              <Route path="/catalog/:id" component={ProductDetail} />
               <Route path="/booking/:productId" component={CustomerBooking} />
               <Route path="/orders" component={CustomerOrders} />
               <Route path="/wishlist" component={CustomerWishlist} />

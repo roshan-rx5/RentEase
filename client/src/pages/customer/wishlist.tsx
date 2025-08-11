@@ -6,11 +6,13 @@ import { Heart } from "lucide-react";
 import type { ProductWithCategory } from "@shared/schema";
 
 export default function CustomerWishlist() {
-  // For now, showing empty wishlist - can be connected to user's wishlist data later
   const { data: wishlistProducts, isLoading } = useQuery({
-    queryKey: ["/api/wishlist"],
-    queryFn: () => Promise.resolve([]), // Empty for now
+    queryKey: ["/api/products"],
+    queryFn: () => fetch("/api/products").then(res => res.json()),
   });
+
+  // Filter to show only a few sample products in wishlist for demo
+  const sampleWishlist = wishlistProducts?.slice(0, 3) || [];
 
   return (
     <CustomerLayout>
@@ -39,7 +41,7 @@ export default function CustomerWishlist() {
               </Card>
             ))}
           </div>
-        ) : !wishlistProducts || wishlistProducts.length === 0 ? (
+        ) : !sampleWishlist || sampleWishlist.length === 0 ? (
           <Card>
             <CardContent className="py-16 text-center">
               <Heart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -53,11 +55,11 @@ export default function CustomerWishlist() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {wishlistProducts.map((product: ProductWithCategory) => (
+            {sampleWishlist.map((product: ProductWithCategory) => (
               <ProductCard
                 key={product.id}
                 product={product}
-                onBook={() => {}} // Handle booking
+                onBook={() => window.location.href = `/catalog/${product.id}`}
                 selectedDates={{}}
               />
             ))}
