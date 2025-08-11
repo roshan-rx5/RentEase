@@ -128,7 +128,7 @@ export default function Login() {
             <div className="text-center space-y-2">
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 mb-4">
                 <p className="text-sm font-medium text-blue-800">Admin Login</p>
-                <p className="text-xs text-blue-600">Email: admin | Password: admin123</p>
+                <p className="text-xs text-blue-600">Email: admin@rental.com | Password: admin123</p>
               </div>
               <p className="text-sm text-gray-600">
                 don't have account?{" "}

@@ -111,6 +111,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Legacy login route for compatibility
+  app.get('/api/login', (req, res) => {
+    res.redirect('/login');
+  });
+
+  // Admin route handler
+  app.get('/admin', (req, res) => {
+    res.redirect('/');
+  });
+
   // Dashboard stats
   app.get('/api/dashboard/stats', isAdmin, async (req, res) => {
     try {
@@ -133,13 +143,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/categories', isAuthenticated, async (req: any, res) => {
+  app.post('/api/categories', isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
       const validatedData = insertCategorySchema.parse(req.body);
       const category = await storage.createCategory(validatedData);
       res.json(category);
@@ -184,13 +189,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/products', isAuthenticated, async (req: any, res) => {
+  app.post('/api/products', isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
       const validatedData = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(validatedData);
       res.json(product);
@@ -200,13 +200,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/products/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/products/:id', isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
       const validatedData = insertProductSchema.partial().parse(req.body);
       const product = await storage.updateProduct(req.params.id, validatedData);
       res.json(product);
@@ -216,13 +211,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/products/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/products/:id', isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
       await storage.deleteProduct(req.params.id);
       res.json({ message: "Product deleted successfully" });
     } catch (error) {
@@ -234,18 +224,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Order routes
   app.get('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ message: "User ID not found" });
-      }
-      
-      const user = await storage.getUser(userId);
+      const user = req.user;
       let orders;
       
       if (user?.role === 'admin') {
         orders = await storage.getOrders();
       } else {
-        orders = await storage.getOrders(userId);
+        orders = await storage.getOrders(user.id);
       }
       
       res.json(orders);
@@ -359,7 +344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currency: "inr",
         metadata: {
           orderId: orderId || '',
-          userId: req.user.claims.sub,
+          userId: req.user.id,
         },
       });
 
