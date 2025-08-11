@@ -2,22 +2,27 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import AdminLayout from "@/components/layout/admin-layout";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import ProductForm from "@/components/forms/product-form";
-import type { ProductWithCategory } from "@shared/schema";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Product, Category, ProductWithCategory } from "@shared/schema";
 
 export default function AdminProducts() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<ProductWithCategory | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
+  const [isCreateMode, setIsCreateMode] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -39,37 +44,75 @@ export default function AdminProducts() {
     enabled: isAuthenticated,
   });
 
-  const { data: categories } = useQuery({
+  const { data: categories, isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/categories"],
     enabled: isAuthenticated,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/products/${id}`);
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    categoryId: "",
+    imageUrl: "",
+    totalQuantity: 1,
+    availableQuantity: 1,
+    hourlyRate: "",
+    dailyRate: "",
+    weeklyRate: "",
+    monthlyRate: "",
+    securityDeposit: "",
+  });
+
+  const createProductMutation = useMutation({
+    mutationFn: async (productData: any) => {
+      await apiRequest("POST", "/api/products", productData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       toast({
         title: "Success",
-        description: "Product deleted successfully",
+        description: "Product created successfully",
+      });
+      setIsProductDialogOpen(false);
+      setFormData({
+        name: "",
+        description: "",
+        categoryId: "",
+        imageUrl: "",
+        totalQuantity: 1,
+        availableQuantity: 1,
+        hourlyRate: "",
+        dailyRate: "",
+        weeklyRate: "",
+        monthlyRate: "",
+        securityDeposit: "",
       });
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+    onError: () => {
       toast({
         title: "Error",
-        description: "Failed to delete product",
+        description: "Failed to create product",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateProductMutation = useMutation({
+    mutationFn: async ({ id, ...productData }: any) => {
+      await apiRequest("PUT", `/api/products/${id}`, productData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Success",
+        description: "Product updated successfully",
+      });
+      setIsProductDialogOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update product",
         variant: "destructive",
       });
     },
@@ -83,161 +126,402 @@ export default function AdminProducts() {
     );
   }
 
-  const handleEdit = (product: ProductWithCategory) => {
-    setSelectedProduct(product);
-    setIsEditDialogOpen(true);
+  const filteredProducts = Array.isArray(products) ? products.filter(product => {
+    const matchesSearch = !searchTerm || 
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesSearch;
+  }) : [];
+
+  const openCreateDialog = () => {
+    setIsCreateMode(true);
+    setSelectedProduct(null);
+    setFormData({
+      name: "",
+      description: "",
+      categoryId: "",
+      imageUrl: "",
+      totalQuantity: 1,
+      availableQuantity: 1,
+      hourlyRate: "",
+      dailyRate: "",
+      weeklyRate: "",
+      monthlyRate: "",
+      securityDeposit: "",
+    });
+    setIsProductDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this product?")) {
-      deleteMutation.mutate(id);
+  const openEditDialog = (product: ProductWithCategory) => {
+    setIsCreateMode(false);
+    setSelectedProduct(product);
+    setFormData({
+      name: product.name,
+      description: product.description || "",
+      categoryId: product.categoryId || "",
+      imageUrl: product.imageUrl || "",
+      totalQuantity: product.totalQuantity || 1,
+      availableQuantity: product.availableQuantity || 1,
+      hourlyRate: product.hourlyRate || "",
+      dailyRate: product.dailyRate || "",
+      weeklyRate: product.weeklyRate || "",
+      monthlyRate: product.monthlyRate || "",
+      securityDeposit: product.securityDeposit || "",
+    });
+    setIsProductDialogOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const submitData = {
+      ...formData,
+      totalQuantity: parseInt(formData.totalQuantity.toString()) || 1,
+      availableQuantity: parseInt(formData.availableQuantity.toString()) || 1,
+      hourlyRate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : null,
+      dailyRate: formData.dailyRate ? parseFloat(formData.dailyRate) : null,
+      weeklyRate: formData.weeklyRate ? parseFloat(formData.weeklyRate) : null,
+      monthlyRate: formData.monthlyRate ? parseFloat(formData.monthlyRate) : null,
+      securityDeposit: formData.securityDeposit ? parseFloat(formData.securityDeposit) : null,
+    };
+
+    if (isCreateMode) {
+      createProductMutation.mutate(submitData);
+    } else if (selectedProduct) {
+      updateProductMutation.mutate({ id: selectedProduct.id, ...submitData });
     }
   };
 
   return (
     <AdminLayout>
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Products</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Product</h2>
             <p className="text-gray-600">Manage your rental product catalog</p>
           </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <i className="fas fa-plus mr-2"></i>
-                Add Product
+          <div className="flex items-center space-x-4">
+            <Button 
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              onClick={openCreateDialog}
+              data-testid="button-create-product"
+            >
+              Create
+            </Button>
+            <Button variant="outline" className="bg-orange-500 hover:bg-orange-600 text-white">
+              Update Stock
+            </Button>
+            <span className="text-sm text-gray-500">1/80</span>
+            <div className="flex">
+              <Button variant="outline" size="sm">
+                &lt;
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Add New Product</DialogTitle>
-              </DialogHeader>
-              <ProductForm
-                categories={Array.isArray(categories) ? categories : []}
-                onSuccess={() => {
-                  setIsCreateDialogOpen(false);
-                  queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-                }}
-              />
-            </DialogContent>
-          </Dialog>
+              <Button variant="outline" size="sm">
+                &gt;
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <Input
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64"
+              data-testid="input-search-products"
+            />
+          </div>
         </div>
 
         {/* Products Grid */}
-        {productsLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-          </div>
-        ) : !Array.isArray(products) || products.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <i className="fas fa-box text-gray-300 text-6xl mb-4"></i>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No products yet</h3>
-              <p className="text-gray-600 mb-6">Get started by adding your first rental product</p>
-              <Button onClick={() => setIsCreateDialogOpen(true)}>
-                <i className="fas fa-plus mr-2"></i>
-                Add Product
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.isArray(products) && products.map((product) => (
-              <Card key={product.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{product.name}</CardTitle>
-                      <p className="text-sm text-gray-600 mt-1">{product.description}</p>
-                    </div>
-                    <div className="flex space-x-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(product)}
-                      >
-                        <i className="fas fa-edit text-gray-500"></i>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(product.id)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        <i className="fas fa-trash text-red-500"></i>
-                      </Button>
-                    </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {productsLoading ? (
+            <div className="col-span-full flex justify-center py-8">
+              <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="col-span-full text-center py-8 text-gray-500">
+              No products found
+            </div>
+          ) : (
+            filteredProducts.map((product) => (
+              <Card 
+                key={product.id} 
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => openEditDialog(product)}
+                data-testid={`card-product-${product.id}`}
+              >
+                <CardContent className="p-4">
+                  <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
+                    {product.imageUrl ? (
+                      <img 
+                        src={product.imageUrl} 
+                        alt={product.name}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="text-gray-400 text-center">
+                        <div className="text-4xl mb-2">📦</div>
+                        <div className="text-sm">No Image</div>
+                      </div>
+                    )}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {product.category && (
-                    <Badge variant="secondary" className="mb-3">
-                      {product.category.name}
-                    </Badge>
-                  )}
                   
-                  <div className="space-y-2 mb-4">
-                    {product.hourlyRate && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Hourly:</span>
-                        <span className="font-medium">₹{Number(product.hourlyRate)}/hr</span>
-                      </div>
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-lg">{product.name}</h3>
+                    
+                    {product.category && (
+                      <Badge variant="secondary" className="text-xs">
+                        {product.category.name}
+                      </Badge>
                     )}
-                    {product.dailyRate && (
+                    
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {product.description || "No description available"}
+                    </p>
+                    
+                    <div className="space-y-1">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Daily:</span>
-                        <span className="font-medium">₹{Number(product.dailyRate)}/day</span>
+                        <span className="text-gray-500">Stock:</span>
+                        <span className="font-medium">
+                          {product.availableQuantity}/{product.totalQuantity}
+                        </span>
                       </div>
-                    )}
-                    {product.weeklyRate && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Weekly:</span>
-                        <span className="font-medium">₹{Number(product.weeklyRate)}/week</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <Badge 
-                      variant={product.availableQuantity && product.availableQuantity > 0 ? "default" : "destructive"}
-                    >
-                      {product.availableQuantity && product.availableQuantity > 0 
-                        ? `${product.availableQuantity} Available` 
-                        : "Out of Stock"
-                      }
-                    </Badge>
-                    <Badge variant={product.isRentable ? "outline" : "secondary"}>
-                      {product.isRentable ? "Rentable" : "Not Rentable"}
-                    </Badge>
+                      
+                      {product.dailyRate && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Daily Rate:</span>
+                          <span className="font-medium text-green-600">
+                            ₹{Number(product.dailyRate).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Edit Product Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Edit Product</DialogTitle>
-            </DialogHeader>
-            {selectedProduct && (
-              <ProductForm
-                product={selectedProduct}
-                categories={Array.isArray(categories) ? categories : []}
-                onSuccess={() => {
-                  setIsEditDialogOpen(false);
-                  setSelectedProduct(null);
-                  queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-                }}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
+            ))
+          )}
+        </div>
       </div>
+
+      {/* Product Create/Edit Dialog */}
+      <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {isCreateMode ? "Create Product" : "Edit Product"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* General Product Info */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">General Product Info</h3>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="name">Product Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    data-testid="input-product-name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={3}
+                    data-testid="textarea-product-description"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select 
+                    value={formData.categoryId} 
+                    onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+                  >
+                    <SelectTrigger data-testid="select-product-category">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.isArray(categories) && categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="imageUrl">Image URL</Label>
+                  <Input
+                    id="imageUrl"
+                    value={formData.imageUrl}
+                    onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                    placeholder="https://example.com/image.jpg"
+                    data-testid="input-product-image"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="totalQuantity">Total Quantity</Label>
+                    <Input
+                      id="totalQuantity"
+                      type="number"
+                      min="1"
+                      value={formData.totalQuantity}
+                      onChange={(e) => setFormData({ ...formData, totalQuantity: parseInt(e.target.value) || 1 })}
+                      data-testid="input-total-quantity"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="availableQuantity">Available Quantity</Label>
+                    <Input
+                      id="availableQuantity"
+                      type="number"
+                      min="0"
+                      value={formData.availableQuantity}
+                      onChange={(e) => setFormData({ ...formData, availableQuantity: parseInt(e.target.value) || 0 })}
+                      data-testid="input-available-quantity"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Rental Pricing */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Rental Pricing</h3>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm font-medium text-gray-600 border-b pb-2">
+                    <div>Rental Period</div>
+                    <div>Price</div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 items-center">
+                    <Label>Hourly Rate</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.hourlyRate}
+                        onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-8"
+                        data-testid="input-hourly-rate"
+                      />
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 items-center">
+                    <Label>Daily Rate</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.dailyRate}
+                        onChange={(e) => setFormData({ ...formData, dailyRate: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-8"
+                        data-testid="input-daily-rate"
+                      />
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 items-center">
+                    <Label>Weekly Rate</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.weeklyRate}
+                        onChange={(e) => setFormData({ ...formData, weeklyRate: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-8"
+                        data-testid="input-weekly-rate"
+                      />
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 items-center">
+                    <Label>Monthly Rate</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.monthlyRate}
+                        onChange={(e) => setFormData({ ...formData, monthlyRate: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-8"
+                        data-testid="input-monthly-rate"
+                      />
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mt-6">
+                  <h4 className="font-medium">Rental Reservation charges</h4>
+                  
+                  <div className="grid grid-cols-2 gap-4 items-center">
+                    <Label>Security Deposit</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.securityDeposit}
+                        onChange={(e) => setFormData({ ...formData, securityDeposit: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-8"
+                        data-testid="input-security-deposit"
+                      />
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-4 pt-4 border-t">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsProductDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={createProductMutation.isPending || updateProductMutation.isPending}
+                data-testid="button-save-product"
+              >
+                {createProductMutation.isPending || updateProductMutation.isPending 
+                  ? "Saving..." 
+                  : isCreateMode ? "Create Product" : "Update Product"
+                }
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

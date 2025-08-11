@@ -15,10 +15,9 @@ import CustomerLayout from "@/components/layout/customer-layout";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
 // recreating the `Stripe` object on every render.
-if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
-  throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
-}
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+// Use placeholder Stripe key for development - replace with real key for production
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_placeholder';
+const stripePromise = loadStripe(stripeKey);
 
 const CheckoutForm = ({ order }: { order: any }) => {
   const stripe = useStripe();
