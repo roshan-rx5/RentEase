@@ -193,6 +193,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/products/:id/availability', async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const product = await storage.getProduct(req.params.id);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      // For now, return the product's current availability
+      // In a real system, this would check bookings against the date range
+      const availability = {
+        productId: product.id,
+        totalQuantity: product.totalQuantity,
+        availableQuantity: product.availableQuantity,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        lastUpdated: new Date().toISOString()
+      };
+
+      res.json(availability);
+    } catch (error) {
+      console.error("Error fetching product availability:", error);
+      res.status(500).json({ message: "Failed to fetch availability" });
+    }
+  });
+
   app.post('/api/products', isAdmin, async (req: any, res) => {
     try {
       const validatedData = insertProductSchema.parse(req.body);
@@ -251,8 +278,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
 
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin' && order.customerId !== req.user.claims.sub) {
+      const user = await storage.getUserById(req.user.id);
+      if (user?.role !== 'admin' && order.customerId !== req.user.id) {
         return res.status(403).json({ message: "Access denied" });
       }
 
@@ -269,7 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertOrderSchema.parse({
         ...req.body,
         orderNumber,
-        customerId: req.user.claims.sub,
+        customerId: req.user.id,
       });
       
       const order = await storage.createOrder(validatedData);
@@ -299,8 +326,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
 
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin' && order.customerId !== req.user.claims.sub) {
+      const user = await storage.getUserById(req.user.id);
+      if (user?.role !== 'admin' && order.customerId !== req.user.id) {
         return res.status(403).json({ message: "Access denied" });
       }
 
@@ -316,7 +343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Notification routes
   app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
     try {
-      const notifications = await storage.getNotifications(req.user.claims.sub);
+      const notifications = await storage.getNotifications(req.user.id);
       res.json(notifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);

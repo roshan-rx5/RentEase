@@ -4,13 +4,15 @@ import { useLocation } from "wouter";
 import CustomerLayout from "@/components/layout/customer-layout";
 import ProductCard from "@/components/ui/product-card";
 import RentalCalendar from "@/components/ui/rental-calendar";
+import QuickRentWidget from "@/components/ui/quick-rent-widget";
+import LiveAvailability from "@/components/ui/live-availability";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Grid3X3, List, Search, SlidersHorizontal } from "lucide-react";
+import { Grid3X3, List, Search, SlidersHorizontal, Zap, Clock } from "lucide-react";
 import type { ProductWithCategory } from "@shared/schema";
 
 export default function CustomerCatalog() {
@@ -68,6 +70,36 @@ export default function CustomerCatalog() {
   return (
     <CustomerLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Hero Section */}
+        <div className="mb-8">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">Professional Equipment Rental</h1>
+                <p className="text-blue-100 text-lg">
+                  Rent high-quality equipment instantly • Real-time availability • Instant booking
+                </p>
+                <div className="flex items-center gap-4 mt-4">
+                  <Badge className="bg-white/20 text-white border-white/30">
+                    <Zap className="h-3 w-3 mr-1" />
+                    Quick Rent Available
+                  </Badge>
+                  <Badge className="bg-white/20 text-white border-white/30">
+                    <Clock className="h-3 w-3 mr-1" />
+                    Real-time Updates
+                  </Badge>
+                </div>
+              </div>
+              <div className="hidden md:block">
+                <div className="text-right">
+                  <div className="text-2xl font-bold">{filteredProducts.length}+</div>
+                  <div className="text-blue-100">Items Available</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-6">
           {/* Left Sidebar - Product Attributes */}
           <div className="w-64 flex-shrink-0">
@@ -248,12 +280,28 @@ export default function CustomerCatalog() {
                 {viewMode === "grid" ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="products-grid">
                     {filteredProducts.map((product: ProductWithCategory) => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        onBook={() => handleBookProduct(product.id)}
-                        selectedDates={selectedDates}
-                      />
+                      <div key={product.id} className="relative group">
+                        <ProductCard
+                          product={product}
+                          onBook={() => handleBookProduct(product.id)}
+                          selectedDates={selectedDates}
+                        />
+                        {/* Live Availability Badge */}
+                        <div className="absolute top-3 left-3 z-10">
+                          <LiveAvailability 
+                            productId={product.id}
+                            startDate={selectedDates.from}
+                            endDate={selectedDates.to}
+                          />
+                        </div>
+                        {/* Quick Rent Widget - shows on hover */}
+                        <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <QuickRentWidget 
+                            product={product} 
+                            className="w-72 transform scale-90 group-hover:scale-100 transition-transform duration-300"
+                          />
+                        </div>
+                      </div>
                     ))}
                   </div>
                 ) : (
