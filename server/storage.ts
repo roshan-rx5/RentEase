@@ -44,6 +44,7 @@ import { eq, desc, and, gte, lte, sql, like, count } from "drizzle-orm";
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: UpsertUser): Promise<User>;
   upsertUser(user: UpsertUser, id?: string): Promise<User>;
@@ -152,7 +153,7 @@ export interface IStorage {
   
   // Utility operations
   generateOrderNumber(): Promise<string>;
-  updateUserStripeInfo(userId: string, stripeInfo: { customerId?: string; subscriptionId?: string }): Promise<User>;
+
 }
 
 export class DatabaseStorage implements IStorage {
@@ -160,6 +161,10 @@ export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
+  }
+
+  async getUserById(id: string): Promise<User | undefined> {
+    return this.getUser(id);
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -465,18 +470,7 @@ export class DatabaseStorage implements IStorage {
     return `RO-${year}-${month}-${String(nextNumber).padStart(3, '0')}`;
   }
 
-  async updateUserStripeInfo(userId: string, stripeInfo: { customerId?: string; subscriptionId?: string }): Promise<User> {
-    const updateData: Partial<UpsertUser> = {};
-    if (stripeInfo.customerId) updateData.stripeCustomerId = stripeInfo.customerId;
-    if (stripeInfo.subscriptionId) updateData.stripeSubscriptionId = stripeInfo.subscriptionId;
 
-    const [updated] = await db
-      .update(users)
-      .set({ ...updateData, updatedAt: new Date() })
-      .where(eq(users.id, userId))
-      .returning();
-    return updated;
-  }
 
   // Invoice operations
   async getInvoices(customerId?: string): Promise<InvoiceWithDetails[]> {
@@ -489,7 +483,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(invoices.createdAt));
 
     if (customerId) {
-      query = query.where(eq(invoices.customerId, customerId));
+      query = query.where(eq(invoices.customerId, customerId)) as any;
     }
 
     const results = await query;

@@ -61,8 +61,6 @@ export const users = pgTable("users", {
   phone: varchar("phone"),
   address: text("address"),
   role: userRoleEnum("role").default('customer').notNull(),
-  stripeCustomerId: varchar("stripe_customer_id"),
-  stripeSubscriptionId: varchar("stripe_subscription_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -106,7 +104,6 @@ export const orders = pgTable("orders", {
   securityDeposit: decimal("security_deposit", { precision: 10, scale: 2 }),
   notes: text("notes"),
   paymentStatus: paymentStatusEnum("payment_status").default('pending'),
-  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
   pickupAddress: text("pickup_address"),
   returnAddress: text("return_address"),
   actualPickupDate: timestamp("actual_pickup_date"),
@@ -173,9 +170,7 @@ export const payments = pgTable("payments", {
   customerId: varchar("customer_id").references(() => users.id).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   type: varchar("type", { length: 20 }).notNull(), // rental, deposit, late_fee, penalty, refund
-  paymentMethod: varchar("payment_method", { length: 50 }), // stripe, cash, bank_transfer
-  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
-  stripeChargeId: varchar("stripe_charge_id"),
+  paymentMethod: varchar("payment_method", { length: 50 }), // cash, bank_transfer, online
   status: varchar("status", { length: 20 }).default('pending'), // pending, completed, failed, refunded
   description: text("description"),
   processedAt: timestamp("processed_at"),
@@ -359,8 +354,6 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export const registerUserSchema = insertUserSchema.omit({
   role: true,
-  stripeCustomerId: true,
-  stripeSubscriptionId: true,
 }).extend({
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {

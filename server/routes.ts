@@ -1,6 +1,5 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import Stripe from "stripe";
 import passport from "passport";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin, hashPassword } from "./auth";
@@ -18,14 +17,6 @@ import {
   insertPaymentSchema,
 } from "@shared/schema";
 import { z } from "zod";
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-07-30.basil",
-});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -381,103 +372,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stripe payment routes
-  app.post("/api/create-payment-intent", isAuthenticated, async (req: any, res) => {
+  // Payment processing - simple order confirmation without Stripe
+  app.post("/api/confirm-order", isAuthenticated, async (req: any, res) => {
     try {
-      const { amount, orderId } = req.body;
+      const { orderId } = req.body;
       
-      if (!amount || amount <= 0) {
-        return res.status(400).json({ message: "Invalid amount" });
+      if (!orderId) {
+        return res.status(400).json({ message: "Order ID is required" });
       }
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Convert to cents
-        currency: "inr",
-        metadata: {
-          orderId: orderId || '',
-          userId: req.user.id,
-        },
+      // Update order status to confirmed and paid
+      const updatedOrder = await storage.updateOrder(orderId, {
+        paymentStatus: 'paid',
+        status: 'confirmed',
       });
 
-      // Update order with payment intent ID if order exists
-      if (orderId) {
-        await storage.updateOrder(orderId, {
-          stripePaymentIntentId: paymentIntent.id,
-        });
-      }
-
-      res.json({ clientSecret: paymentIntent.client_secret });
+      res.json({ success: true, order: updatedOrder });
     } catch (error: any) {
-      console.error("Error creating payment intent:", error);
-      res.status(500).json({ message: "Error creating payment intent: " + error.message });
+      console.error("Error confirming order:", error);
+      res.status(500).json({ message: "Error confirming order: " + error.message });
     }
   });
 
-  // Webhook for Stripe payment confirmations
-  app.post('/api/stripe/webhook', async (req, res) => {
-    try {
-      // In production, verify the webhook signature here
-      const event = req.body;
 
-      if (event.type === 'payment_intent.succeeded') {
-        const paymentIntent = event.data.object;
-        const orderId = paymentIntent.metadata.orderId;
-
-        if (orderId) {
-          // Update order status
-          await storage.updateOrder(orderId, {
-            paymentStatus: 'paid',
-            status: 'confirmed',
-            stripePaymentIntentId: paymentIntent.id,
-          });
-
-          // Get complete order details with items and user info for email
-          const order = await storage.getOrder(orderId);
-          const user = await storage.getUserById(order.customerId);
-
-          if (order && user) {
-            // Send order confirmation email with rental ticket
-            const confirmationEmailSent = await sendEmail({
-              to: user.email,
-              from: 'noreply@rentflow.com', // Change this to your verified SendGrid sender
-              subject: `Order Confirmed - ${order.orderNumber} | Your Rental Ticket`,
-              html: generateOrderConfirmationEmail(order, user),
-            });
-
-            // Send payment receipt email
-            const receiptEmailSent = await sendEmail({
-              to: user.email,
-              from: 'noreply@rentflow.com', // Change this to your verified SendGrid sender
-              subject: `Payment Receipt - ${order.orderNumber}`,
-              html: generatePaymentReceiptEmail(order, user, paymentIntent),
-            });
-
-            console.log('Email notifications sent:', { 
-              confirmation: confirmationEmailSent, 
-              receipt: receiptEmailSent 
-            });
-          }
-
-          // Create notification for successful payment
-          await storage.createNotification({
-            userId: paymentIntent.metadata.userId || order.customerId,
-            title: 'Payment Successful - Order Confirmed!',
-            message: `Payment of ₹${(paymentIntent.amount / 100).toLocaleString()} received. Your rental ticket has been sent to your email.`,
-            type: 'success',
-            relatedOrderId: orderId,
-          });
-        }
-      }
-
-      res.json({ received: true });
-    } catch (error) {
-      console.error("Error processing webhook:", error);
-      res.status(500).json({ message: "Webhook processing failed" });
-    }
-  });
 
   // Invoice management routes
-  app.get('/api/invoices', isAuthenticated, async (req, res) => {
+  app.get('/api/invoices', isAuthenticated, async (req: any, res) => {
     try {
       const customerId = req.user?.role === 'admin' ? undefined : req.user?.id;
       const invoices = await storage.getInvoices(customerId);
@@ -488,14 +408,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/invoices/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/invoices/:id', isAuthenticated, async (req: any, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
       
-      if (req.user.role !== 'admin' && invoice.customerId !== req.user.id) {
+      if (req.user?.role !== 'admin' && invoice.customerId !== req.user?.id) {
         return res.status(403).json({ message: "Access denied" });
       }
       
@@ -540,7 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/invoices/:id/pay', isAuthenticated, async (req, res) => {
+  app.post('/api/invoices/:id/pay', isAuthenticated, async (req: any, res) => {
     try {
       const { amount, paymentType = 'partial' } = req.body;
       const invoice = await storage.getInvoice(req.params.id);
@@ -555,27 +475,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const paymentAmount = paymentType === 'full' ? Number(invoice.totalAmount) : amount;
       
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(paymentAmount * 100),
-        currency: "inr",
-        metadata: {
-          invoiceId: invoice.id,
-          customerId: invoice.customerId,
-          type: 'invoice_payment'
-        }
+      // Simple payment confirmation without Stripe
+      await storage.updateInvoice(invoice.id, {
+        paidAmount: paymentAmount.toString(),
+        status: paymentAmount >= Number(invoice.totalAmount) ? 'paid' : 'partial'
       });
 
       res.json({ 
-        clientSecret: paymentIntent.client_secret,
+        success: true,
         amount: paymentAmount
       });
     } catch (error) {
-      console.error("Error creating payment for invoice:", error);
+      console.error("Error processing payment for invoice:", error);
       res.status(500).json({ message: "Failed to process payment" });
     }
   });
 
-  // Deposit payment route
+  // Deposit payment route - simplified without Stripe
   app.post('/api/deposits/:orderId/pay', isAuthenticated, async (req, res) => {
     try {
       const order = await storage.getOrder(req.params.orderId);
@@ -589,22 +505,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const depositAmount = order.securityDeposit || '0';
       
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(Number(depositAmount) * 100),
-        currency: "inr",
-        metadata: {
-          orderId: order.id,
-          customerId: order.customerId,
-          type: 'security_deposit'
-        }
+      // Simple confirmation - update order notes to indicate deposit paid
+      await storage.updateOrder(order.id, {
+        notes: (order.notes || '') + '\nDeposit paid: ' + new Date().toISOString()
       });
 
       res.json({ 
-        clientSecret: paymentIntent.client_secret,
+        success: true,
         amount: Number(depositAmount)
       });
     } catch (error) {
-      console.error("Error creating deposit payment:", error);
+      console.error("Error processing deposit payment:", error);
       res.status(500).json({ message: "Failed to process deposit payment" });
     }
   });
