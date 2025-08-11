@@ -17,9 +17,9 @@ import {
   insertInvoiceSchema,
   insertDepositSchema,
   insertPaymentSchema,
-  verifyOtpSchema,
+
 } from "@shared/schema";
-import { createAndSendOtp, verifyUserOtp } from "./otpService";
+
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -120,67 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // OTP verification route
-  app.post('/api/auth/verify-otp', async (req, res) => {
-    try {
-      const validatedData = verifyOtpSchema.parse(req.body);
-      const { userId, otp, purpose } = validatedData;
-      
-      const isValid = await verifyUserOtp(userId, otp, purpose);
-      
-      if (!isValid) {
-        return res.status(400).json({ message: "Invalid or expired OTP" });
-      }
-      
-      // If verification successful, get updated user
-      const user = await storage.getUserById(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      // Remove password from response
-      const { password, ...userResponse } = user;
-      res.json({ 
-        ...userResponse, 
-        message: "OTP verified successfully",
-        isVerified: true 
-      });
-      
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      console.error("OTP verification error:", error);
-      res.status(500).json({ message: "OTP verification failed" });
-    }
-  });
 
-  // Resend OTP route
-  app.post('/api/auth/resend-otp', async (req, res) => {
-    try {
-      const { userId, purpose } = req.body;
-      
-      if (!userId || !purpose) {
-        return res.status(400).json({ message: "User ID and purpose are required" });
-      }
-      
-      const user = await storage.getUserById(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      const otpSent = await createAndSendOtp(userId, user.email, purpose);
-      if (!otpSent) {
-        return res.status(500).json({ message: "Failed to resend OTP" });
-      }
-      
-      res.json({ message: "OTP resent successfully" });
-      
-    } catch (error) {
-      console.error("Resend OTP error:", error);
-      res.status(500).json({ message: "Failed to resend OTP" });
-    }
-  });
 
   // Legacy login route for compatibility
   app.get('/api/login', (req, res) => {
