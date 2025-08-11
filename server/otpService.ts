@@ -1,5 +1,6 @@
 import { storage } from './storage';
 import { sendWebhookEmail, generateSimpleOtpText } from "./webhookEmail";
+import { PushNotificationService } from "./pushNotifications";
 
 // Generate a random 4-digit OTP
 export function generateOtp(): string {
@@ -47,8 +48,18 @@ export async function createAndSendOtp(userId: string, email: string, purpose: '
       isUsed: false
     });
     
-    // Send OTP via email (or log for development)
-    return await sendOtpEmail(email, otp, purpose);
+    // Send OTP via email and push notification
+    const emailSent = await sendOtpEmail(email, otp, purpose);
+    
+    // Also send push notification if user has registered devices
+    try {
+      await PushNotificationService.sendOtpNotification(userId, otp, purpose);
+    } catch (error) {
+      console.log('Push notification failed (user may not have mobile app):', error);
+      // Don't fail the flow if push notification fails
+    }
+    
+    return emailSent;
   } catch (error) {
     console.error('Error creating/sending OTP:', error);
     return false;

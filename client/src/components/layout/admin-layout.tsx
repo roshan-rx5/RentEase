@@ -39,6 +39,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Invoices", href: "/admin/invoices", icon: "fas fa-file-invoice", current: location === "/admin/invoices" },
     { name: "Transfers", href: "/admin/transfers", icon: "fas fa-truck", current: location === "/admin/transfers" },
     { name: "Customers", href: "/admin/customers", icon: "fas fa-users", current: location === "/admin/customers" },
+    { name: "Mobile App", href: "/admin/mobile", icon: "fas fa-mobile-alt", current: location === "/admin/mobile" },
   ];
 
   return (

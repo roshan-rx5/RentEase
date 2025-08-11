@@ -11,6 +11,7 @@ RentFlow is a comprehensive rental management platform that provides both admin 
 - **Complete Billing System**: Automated email confirmations, rental tickets, and payment receipts
 - **4-Digit OTP Verification**: Two-factor authentication for login and signup sessions with enhanced email notifications
 - **Email Notification System**: Beautiful console-based email notifications with clear OTP delivery (no external APIs required)
+- **Mobile App Companion**: Push notification system for real-time user engagement with device management and notification history
 - **Stripe Integration Removed**: Simplified payment system without external processors
 
 ## User Preferences
@@ -55,13 +56,14 @@ Implements Replit Auth with the following features:
 - **Role-Based Access**: Admin and customer role separation with protected routes
 - **Middleware**: Authentication middleware for API endpoint protection
 
-### Payment Integration
-Stripe integration provides:
+### Mobile App Companion
+Push notification system provides:
 
-- **Payment Elements**: React Stripe.js components for secure payment collection
-- **Order Processing**: Integration between rental orders and payment intents
-- **Webhook Support**: Structured for Stripe webhook event handling
-- **Security**: Environment-based API key management
+- **Device Registration**: Multi-platform support (iOS, Android, Web) with device token management
+- **Real-time Notifications**: Push notifications for OTP verification, booking confirmations, payment reminders, and order updates
+- **Notification History**: Persistent storage and retrieval of notification history with read/unread status
+- **Admin Integration**: Testing tools and device management through admin dashboard
+- **Seamless Integration**: Automatic push notifications alongside existing email notifications
 
 ### Development Tooling
 The project uses modern development practices:

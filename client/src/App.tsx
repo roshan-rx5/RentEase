@@ -14,6 +14,7 @@ import AdminOrders from "@/pages/admin/orders";
 import AdminCustomers from "@/pages/admin/customers";
 import AdminInvoices from "@/pages/admin/invoices";
 import AdminTransfers from "@/pages/admin/transfers";
+import AdminMobile from "@/pages/admin/mobile";
 import InvoicePayment from "@/pages/invoice-payment";
 import CustomerCatalog from "@/pages/customer/catalog";
 import ProductDetail from "@/pages/customer/product-detail";
@@ -21,6 +22,7 @@ import CustomerBooking from "@/pages/customer/booking";
 import CustomerOrders from "@/pages/customer/orders";
 import CustomerWishlist from "@/pages/customer/wishlist";
 import CustomerContact from "@/pages/customer/contact";
+import CustomerMobile from "@/pages/customer/mobile";
 import EnhancedBilling from "@/pages/enhanced-billing";
 import Checkout from "@/pages/checkout";
 import OrderSuccess from "@/pages/order-success";
@@ -56,6 +58,7 @@ function Router() {
               <Route path="/admin/customers" component={AdminCustomers} />
               <Route path="/admin/invoices" component={AdminInvoices} />
               <Route path="/admin/transfers" component={AdminTransfers} />
+              <Route path="/admin/mobile" component={AdminMobile} />
             </>
           ) : (
             <>
@@ -67,6 +70,7 @@ function Router() {
               <Route path="/billing" component={EnhancedBilling} />
               <Route path="/wishlist" component={CustomerWishlist} />
               <Route path="/contact" component={CustomerContact} />
+              <Route path="/mobile" component={CustomerMobile} />
             </>
           )}
           <Route path="/checkout/:orderId" component={Checkout} />

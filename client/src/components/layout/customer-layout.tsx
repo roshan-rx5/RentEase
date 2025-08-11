@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Home, ShoppingCart, Heart, Phone, User, LogOut } from "lucide-react";
+import { Home, ShoppingCart, Heart, Phone, User, LogOut, Smartphone } from "lucide-react";
 
 interface CustomerLayoutProps {
   children: React.ReactNode;
@@ -41,6 +41,7 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
     { name: "Billing", href: "/billing", icon: ShoppingCart, current: location === "/billing" },
     { name: "Wishlist", href: "/wishlist", icon: Heart, current: location === "/wishlist" },
     { name: "Contact us", href: "/contact", icon: Phone, current: location === "/contact" },
+    { name: "Mobile App", href: "/mobile", icon: Smartphone, current: location === "/mobile" },
   ];
 
   return (

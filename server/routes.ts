@@ -4,6 +4,8 @@ import passport from "passport";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin, hashPassword } from "./auth";
 import { sendEmail, generateOrderConfirmationEmail, generatePaymentReceiptEmail } from "./email";
+import { registerMobileRoutes } from "./mobileAPI";
+import { PushNotificationService } from "./pushNotifications";
 import {
   insertCategorySchema,
   insertProductSchema,
@@ -23,6 +25,9 @@ import { z } from "zod";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Register mobile API routes
+  registerMobileRoutes(app);
 
   // Auth routes
   app.post('/api/auth/register', async (req, res) => {

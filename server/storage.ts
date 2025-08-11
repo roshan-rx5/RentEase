@@ -86,8 +86,10 @@ export interface IStorage {
   
   // Notification operations
   getNotifications(userId: string): Promise<Notification[]>;
+  getUserNotifications(userId: string, limit?: number, offset?: number): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: string): Promise<void>;
+  markNotificationAsRead(notificationId: string, userId: string): Promise<boolean>;
   
   // Analytics operations
   getDashboardStats(): Promise<{
@@ -449,6 +451,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(notifications.createdAt));
   }
 
+  async getUserNotifications(userId: string, limit: number = 20, offset: number = 0): Promise<Notification[]> {
+    return await db.select().from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
   async createNotification(notification: InsertNotification): Promise<Notification> {
     const [newNotification] = await db.insert(notifications).values(notification).returning();
     return newNotification;
@@ -459,6 +469,19 @@ export class DatabaseStorage implements IStorage {
       .update(notifications)
       .set({ isRead: true })
       .where(eq(notifications.id, id));
+  }
+
+  async markNotificationAsRead(notificationId: string, userId: string): Promise<boolean> {
+    try {
+      const result = await db.update(notifications)
+        .set({ isRead: true, updatedAt: new Date() })
+        .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)))
+        .returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      return false;
+    }
   }
 
   // Analytics operations
