@@ -13,7 +13,7 @@ import type { ProductWithCategory } from "@shared/schema";
 export default function CustomerCatalog() {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedDates, setSelectedDates] = useState<{ from?: Date; to?: Date }>({});
 
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -37,7 +37,7 @@ export default function CustomerCatalog() {
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.description?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesCategory = !selectedCategory || product.categoryId === selectedCategory;
+    const matchesCategory = !selectedCategory || selectedCategory === "all" || product.categoryId === selectedCategory;
     
     return matchesSearch && matchesCategory;
   }) || [];
@@ -94,7 +94,7 @@ export default function CustomerCatalog() {
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Categories</SelectItem>
+                    <SelectItem value="all">All Categories</SelectItem>
                     {Array.isArray(categories) && categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
@@ -112,7 +112,7 @@ export default function CustomerCatalog() {
                   className="w-full"
                   onClick={() => {
                     setSearchTerm("");
-                    setSelectedCategory("");
+                    setSelectedCategory("all");
                     setSelectedDates({});
                   }}
                 >
