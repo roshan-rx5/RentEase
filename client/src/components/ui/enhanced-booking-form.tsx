@@ -147,7 +147,7 @@ export default function EnhancedBookingForm({ product, onComplete, className = "
       };
 
       const response = await apiRequest("POST", "/api/orders", orderData);
-      return response.json();
+      return response;
     },
     onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
