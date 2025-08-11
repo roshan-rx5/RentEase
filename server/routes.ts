@@ -48,21 +48,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.createUser({
         ...userData,
         password: hashedPassword,
-        isVerified: false, // User needs OTP verification
+        isVerified: true
       });
-
-      // Send OTP for signup verification
-      const otpSent = await createAndSendOtp(user.id, user.email, 'signup');
-      if (!otpSent) {
-        return res.status(500).json({ message: "Failed to send verification OTP" });
-      }
 
       // Remove password from response
       const { password, ...userResponse } = user;
       res.status(201).json({ 
         ...userResponse, 
-        message: "Registration successful. Please check your email for OTP verification.",
-        requiresOtp: true 
+        message: "Registration successful. You can now log in."
       });
     } catch (error) {
       console.error("Error creating user:", error);
@@ -85,23 +78,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(401).json({ message: info?.message || "Invalid credentials" });
         }
         
-        req.logIn(user, async (err) => {
+        req.logIn(user, (err) => {
           if (err) {
             return res.status(500).json({ message: "Login session error" });
-          }
-          
-          // Send OTP for login verification
-          const otpSent = await createAndSendOtp(user.id, user.email, 'login');
-          if (!otpSent) {
-            return res.status(500).json({ message: "Failed to send login OTP" });
           }
           
           // Remove password from response
           const { password, ...userResponse } = user;
           res.json({ 
             ...userResponse, 
-            message: "Login successful. Please check your email for OTP verification.",
-            requiresOtp: true 
+            message: "Login successful"
           });
         });
       })(req, res, next);
