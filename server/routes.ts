@@ -293,12 +293,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
       const orderNumber = await storage.generateOrderNumber();
-      const validatedData = insertOrderSchema.parse({
+      
+      // Enhanced order data with customer details
+      const orderData = {
         ...req.body,
         orderNumber,
         customerId: req.user.id,
-      });
+      };
+
+      // Store customer details if provided
+      if (req.body.customerDetails) {
+        orderData.customerDetails = req.body.customerDetails;
+        orderData.rentalPurpose = req.body.rentalPurpose;
+        orderData.specialRequirements = req.body.specialRequirements;
+      }
       
+      const validatedData = insertOrderSchema.parse(orderData);
       const order = await storage.createOrder(validatedData);
       
       // Add order items if provided
@@ -309,6 +319,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             orderId: order.id,
           });
           await storage.addOrderItem(validatedItem);
+        }
+      }
+
+      // Send email confirmation if customer details provided
+      if (req.body.customerDetails?.email) {
+        try {
+          // Email confirmation logic would go here
+          console.log(`Order confirmation email would be sent to: ${req.body.customerDetails.email}`);
+        } catch (emailError) {
+          console.error("Email sending failed:", emailError);
         }
       }
       

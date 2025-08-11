@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 import CustomerLayout from "@/components/layout/customer-layout";
 import RentalCalendar from "@/components/ui/rental-calendar";
+import EnhancedBookingForm from "@/components/ui/enhanced-booking-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -53,7 +55,15 @@ export default function ProductDetail() {
     return null;
   };
 
-  const handleAddToCart = () => {
+  const [showBookingForm, setShowBookingForm] = useState(false);
+  const { isAuthenticated } = useAuth();
+
+  const handleBookNow = () => {
+    if (!isAuthenticated) {
+      window.location.href = '/api/login';
+      return;
+    }
+    
     if (!selectedDates.from || !selectedDates.to) {
       toast({
         title: "Please select rental dates",
@@ -63,12 +73,11 @@ export default function ProductDetail() {
       return;
     }
 
-    const params = new URLSearchParams({
-      startDate: selectedDates.from.toISOString(),
-      endDate: selectedDates.to.toISOString(),
-      quantity: quantity.toString(),
-    });
-    setLocation(`/booking/${product.id}?${params.toString()}`);
+    setShowBookingForm(true);
+  };
+
+  const handleBookingComplete = (orderId: string) => {
+    setLocation(`/checkout/${orderId}`);
   };
 
   const handleWishlist = () => {
@@ -232,11 +241,11 @@ export default function ProductDetail() {
                   <Plus className="h-4 w-4" />
                 </Button>
                 <Button 
-                  onClick={handleAddToCart}
+                  onClick={handleBookNow}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6"
                   disabled={!product.availableQuantity || product.availableQuantity <= 0}
                 >
-                  Add to Cart
+                  {isAuthenticated ? "Book Now" : "Sign In to Book"}
                 </Button>
               </div>
 

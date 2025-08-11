@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
-import Landing from "@/pages/landing";
+import Home from "@/pages/home";
 import Login from "@/pages/auth/login";
 import Register from "@/pages/auth/register";
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -21,7 +21,7 @@ import CustomerBooking from "@/pages/customer/booking";
 import CustomerOrders from "@/pages/customer/orders";
 import CustomerWishlist from "@/pages/customer/wishlist";
 import CustomerContact from "@/pages/customer/contact";
-import CustomerBilling from "@/pages/customer/billing";
+import EnhancedBilling from "@/pages/enhanced-billing";
 import Checkout from "@/pages/checkout";
 import OrderSuccess from "@/pages/order-success";
 
@@ -40,7 +40,7 @@ function Router() {
     <Switch>
       {!isAuthenticated ? (
         <>
-          <Route path="/" component={Landing} />
+          <Route path="/" component={Home} />
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
         </>
@@ -64,7 +64,7 @@ function Router() {
               <Route path="/catalog/:id" component={ProductDetail} />
               <Route path="/booking/:productId" component={CustomerBooking} />
               <Route path="/orders" component={CustomerOrders} />
-              <Route path="/billing" component={CustomerBilling} />
+              <Route path="/billing" component={EnhancedBilling} />
               <Route path="/wishlist" component={CustomerWishlist} />
               <Route path="/contact" component={CustomerContact} />
             </>
