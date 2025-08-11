@@ -73,7 +73,9 @@ export default function EnhancedBookingForm({ product, onComplete, className = "
     defaultValues: {
       fullName: user?.name || "",
       email: user?.email || "",
-      quantity: 1,
+      startDate: product.selectedDates?.from || new Date(),
+      endDate: product.selectedDates?.to || new Date(Date.now() + 24 * 60 * 60 * 1000),
+      quantity: product.quantity || 1,
       agreeToTerms: false,
       sameAddress: true,
       pickupAddress: "",

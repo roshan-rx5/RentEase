@@ -395,6 +395,35 @@ export default function ProductDetail() {
           </Button>
         </div>
       </div>
+
+      {/* Booking Form Modal */}
+      {showBookingForm && product && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Book {product.name}</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBookingForm(false)}
+              >
+                ✕
+              </Button>
+            </div>
+            <div className="p-6">
+              <EnhancedBookingForm
+                product={{
+                  ...product,
+                  selectedDates,
+                  quantity,
+                  pricing: calculatePrice()
+                }}
+                onComplete={handleBookingComplete}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </CustomerLayout>
   );
 }
