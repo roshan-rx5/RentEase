@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import AdminLayout from "@/components/layout/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import type { OrderWithItems } from "@shared/schema";
 
 export default function AdminDashboard() {
   const [timeFilter, setTimeFilter] = useState("30");
+  const [, setLocation] = useLocation();
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -157,19 +159,39 @@ export default function AdminDashboard() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Button className="p-4 h-auto flex-col space-y-2" variant="outline" data-testid="add-equipment-btn">
+          <Button 
+            className="p-4 h-auto flex-col space-y-2" 
+            variant="outline" 
+            data-testid="add-equipment-btn"
+            onClick={() => setLocation('/admin/products')}
+          >
             <Package className="h-6 w-6" />
             <span>Add Equipment</span>
           </Button>
-          <Button className="p-4 h-auto flex-col space-y-2" variant="outline" data-testid="view-orders-btn">
+          <Button 
+            className="p-4 h-auto flex-col space-y-2" 
+            variant="outline" 
+            data-testid="view-orders-btn"
+            onClick={() => setLocation('/admin/orders')}
+          >
             <ShoppingCart className="h-6 w-6" />
             <span>View Orders</span>
           </Button>
-          <Button className="p-4 h-auto flex-col space-y-2" variant="outline" data-testid="manage-customers-btn">
+          <Button 
+            className="p-4 h-auto flex-col space-y-2" 
+            variant="outline" 
+            data-testid="manage-customers-btn"
+            onClick={() => setLocation('/admin/customers')}
+          >
             <Users className="h-6 w-6" />
             <span>Manage Customers</span>
           </Button>
-          <Button className="p-4 h-auto flex-col space-y-2" variant="outline" data-testid="view-reports-btn">
+          <Button 
+            className="p-4 h-auto flex-col space-y-2" 
+            variant="outline" 
+            data-testid="view-reports-btn"
+            onClick={() => setLocation('/admin/transfers')}
+          >
             <TrendingUp className="h-6 w-6" />
             <span>View Reports</span>
           </Button>
@@ -182,7 +204,12 @@ export default function AdminDashboard() {
               <ShoppingCart className="h-5 w-5 mr-2" />
               Recent Rental Orders
             </CardTitle>
-            <Button variant="outline" size="sm" data-testid="view-all-orders-btn">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              data-testid="view-all-orders-btn"
+              onClick={() => setLocation('/admin/orders')}
+            >
               <Eye className="h-4 w-4 mr-2" />
               View All Orders
             </Button>
