@@ -1,4 +1,4 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { QueryClient, QueryFunction, QueryCache, MutationCache } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -33,8 +33,14 @@ export const getQueryFn: <T>(options: {
       const url = queryKey.join("/") as string;
       
       // Validate URL to prevent malformed requests
-      if (!url.startsWith('/api/') || url.includes('logout')) {
+      if (!url.startsWith('/api/')) {
         throw new Error(`Invalid query URL: ${url}`);
+      }
+      
+      // Specifically block logout endpoints from being queried
+      if (url.includes('logout')) {
+        console.warn(`Blocked logout URL from being queried: ${url}`);
+        return null;
       }
       
       const res = await fetch(url, {
@@ -65,6 +71,19 @@ export const queryClient = new QueryClient({
     },
     mutations: {
       retry: false,
+      onError: (error) => {
+        console.warn("Mutation error:", error);
+      },
     },
   },
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      console.warn("Global mutation error:", error);
+    },
+  }),
+  queryCache: new QueryCache({
+    onError: (error) => {
+      console.warn("Global query error:", error);
+    },
+  }),
 });
