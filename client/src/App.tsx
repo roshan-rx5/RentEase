@@ -21,7 +21,9 @@ import CustomerBooking from "@/pages/customer/booking";
 import CustomerOrders from "@/pages/customer/orders";
 import CustomerWishlist from "@/pages/customer/wishlist";
 import CustomerContact from "@/pages/customer/contact";
+import CustomerBilling from "@/pages/customer/billing";
 import Checkout from "@/pages/checkout";
+import OrderSuccess from "@/pages/order-success";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -62,11 +64,13 @@ function Router() {
               <Route path="/catalog/:id" component={ProductDetail} />
               <Route path="/booking/:productId" component={CustomerBooking} />
               <Route path="/orders" component={CustomerOrders} />
+              <Route path="/billing" component={CustomerBilling} />
               <Route path="/wishlist" component={CustomerWishlist} />
               <Route path="/contact" component={CustomerContact} />
             </>
           )}
           <Route path="/checkout/:orderId" component={Checkout} />
+          <Route path="/order-success/:orderId" component={OrderSuccess} />
           <Route path="/invoice-payment/:invoiceId" component={InvoicePayment} />
         </>
       )}

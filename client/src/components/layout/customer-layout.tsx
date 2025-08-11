@@ -37,6 +37,8 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
   const navigation = [
     { name: "Home", href: "/", icon: Home, current: location === "/" || location === "/catalog" },
     { name: "Rental Shop", href: "/catalog", icon: ShoppingCart, current: location.includes("/catalog") || location.includes("/booking") },
+    { name: "Orders", href: "/orders", icon: ShoppingCart, current: location === "/orders" },
+    { name: "Billing", href: "/billing", icon: ShoppingCart, current: location === "/billing" },
     { name: "Wishlist", href: "/wishlist", icon: Heart, current: location === "/wishlist" },
     { name: "Contact us", href: "/contact", icon: Phone, current: location === "/contact" },
   ];

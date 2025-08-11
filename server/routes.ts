@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import passport from "passport";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin, hashPassword } from "./auth";
+import { sendEmail, generateOrderConfirmationEmail, generatePaymentReceiptEmail } from "./email";
 import {
   insertCategorySchema,
   insertProductSchema,
@@ -376,16 +377,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const orderId = paymentIntent.metadata.orderId;
 
         if (orderId) {
+          // Update order status
           await storage.updateOrder(orderId, {
             paymentStatus: 'paid',
             status: 'confirmed',
+            stripePaymentIntentId: paymentIntent.id,
           });
+
+          // Get complete order details with items and user info for email
+          const order = await storage.getOrder(orderId);
+          const user = await storage.getUserById(order.customerId);
+
+          if (order && user) {
+            // Send order confirmation email with rental ticket
+            const confirmationEmailSent = await sendEmail({
+              to: user.email,
+              from: 'noreply@rentflow.com', // Change this to your verified SendGrid sender
+              subject: `Order Confirmed - ${order.orderNumber} | Your Rental Ticket`,
+              html: generateOrderConfirmationEmail(order, user),
+            });
+
+            // Send payment receipt email
+            const receiptEmailSent = await sendEmail({
+              to: user.email,
+              from: 'noreply@rentflow.com', // Change this to your verified SendGrid sender
+              subject: `Payment Receipt - ${order.orderNumber}`,
+              html: generatePaymentReceiptEmail(order, user, paymentIntent),
+            });
+
+            console.log('Email notifications sent:', { 
+              confirmation: confirmationEmailSent, 
+              receipt: receiptEmailSent 
+            });
+          }
 
           // Create notification for successful payment
           await storage.createNotification({
-            userId: paymentIntent.metadata.userId,
-            title: 'Payment Successful',
-            message: `Payment of ₹${(paymentIntent.amount / 100).toLocaleString()} has been received for your order.`,
+            userId: paymentIntent.metadata.userId || order.customerId,
+            title: 'Payment Successful - Order Confirmed!',
+            message: `Payment of ₹${(paymentIntent.amount / 100).toLocaleString()} received. Your rental ticket has been sent to your email.`,
             type: 'success',
             relatedOrderId: orderId,
           });

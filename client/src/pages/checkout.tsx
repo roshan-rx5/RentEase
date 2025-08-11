@@ -45,9 +45,14 @@ const CheckoutForm = ({ order }: { order: any }) => {
       });
     } else {
       toast({
-        title: "Payment Successful",
-        description: "Thank you for your payment! Your order has been confirmed.",
+        title: "Payment Successful!",
+        description: "Your order has been confirmed. You'll receive a confirmation email with your rental ticket shortly.",
       });
+      
+      // Redirect to success page
+      setTimeout(() => {
+        window.location.href = `/order-success/${order.id}`;
+      }, 2000);
     }
   };
 
