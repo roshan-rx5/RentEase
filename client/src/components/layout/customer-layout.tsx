@@ -4,6 +4,8 @@ import { useLocation } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Home, ShoppingCart, Heart, Phone, User, LogOut } from "lucide-react";
 
 interface CustomerLayoutProps {
   children: React.ReactNode;
@@ -33,83 +35,134 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
   });
 
   const navigation = [
-    { name: "Catalog", href: "/catalog", icon: "fas fa-box", current: location === "/" || location === "/catalog" },
-    { name: "My Orders", href: "/orders", icon: "fas fa-shopping-cart", current: location === "/orders" },
+    { name: "Home", href: "/", icon: Home, current: location === "/" || location === "/catalog" },
+    { name: "Rental Shop", href: "/catalog", icon: ShoppingCart, current: location.includes("/catalog") || location.includes("/booking") },
+    { name: "Wishlist", href: "/wishlist", icon: Heart, current: location === "/wishlist" },
+    { name: "Contact us", href: "/contact", icon: Phone, current: location === "/contact" },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Customer Portal Header */}
-      <div className="bg-primary-500 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <div className="flex items-center mb-2">
-                <i className="fas fa-box-open text-2xl mr-2"></i>
-                <h1 className="text-2xl font-bold">RentFlow Portal</h1>
-              </div>
-              <p className="text-primary-100">Browse and book rental equipment</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-primary-100">
-                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
-                  {user?.profileImageUrl ? (
-                    <img 
-                      src={user.profileImageUrl} 
-                      alt="User avatar"
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-white font-semibold text-sm">
-                      {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-                    </span>
-                  )}
-                </div>
-                <span className="text-sm">
-                  {user?.name || user?.email}
-                </span>
-              </div>
-              <Button 
-                variant="secondary"
-                size="sm"
-                onClick={() => logoutMutation.mutate()}
-                disabled={logoutMutation.isPending}
-                className="bg-white text-primary-500 hover:bg-primary-50"
-              >
-                <i className="fas fa-sign-out-alt mr-2"></i>
-                {logoutMutation.isPending ? "Logging out..." : "Logout"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
+      {/* Modern Header Navigation */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            {navigation.map((item) => (
-              <button
-                key={item.name}
-                onClick={() => setLocation(item.href)}
-                className={`${
-                  item.current
-                    ? "text-primary-600 border-b-2 border-primary-500"
-                    : "text-gray-500 hover:text-gray-700"
-                } flex items-center px-1 py-4 text-sm font-medium`}
+          <div className="flex justify-between items-center h-16">
+            {/* Left: Logo */}
+            <div className="flex items-center">
+              <ShoppingCart className="h-8 w-8 text-primary-600 mr-2" />
+              <span className="text-xl font-bold text-gray-900">RentFlow</span>
+            </div>
+
+            {/* Center: Navigation */}
+            <nav className="hidden md:flex space-x-8">
+              {navigation.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <button
+                    key={item.name}
+                    data-testid={`nav-${item.name.toLowerCase().replace(' ', '-')}`}
+                    onClick={() => setLocation(item.href)}
+                    className={`${
+                      item.current
+                        ? "text-primary-600 border-b-2 border-primary-500"
+                        : "text-gray-500 hover:text-gray-700"
+                    } flex items-center px-1 py-4 text-sm font-medium transition-colors`}
+                  >
+                    <IconComponent className="h-4 w-4 mr-2" />
+                    {item.name}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Right: User Profile & Actions */}
+            <div className="flex items-center space-x-4">
+              {/* Shopping Cart Icon */}
+              <Button
+                variant="ghost"
+                size="sm"
+                data-testid="cart-icon"
+                onClick={() => setLocation("/orders")}
+                className="relative"
               >
-                <i className={`${item.icon} mr-2`}></i>
-                {item.name}
-              </button>
-            ))}
+                <ShoppingCart className="h-5 w-5" />
+              </Button>
+
+              {/* User Profile Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    data-testid="user-profile-dropdown"
+                    className="flex items-center space-x-2"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
+                      <span className="text-primary-600 font-semibold text-sm">
+                        {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                      </span>
+                    </div>
+                    <span className="text-sm hidden sm:block">
+                      {user?.name || 'adam'}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    data-testid="dropdown-profile"
+                    onClick={() => setLocation("/profile")}
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    data-testid="dropdown-orders"
+                    onClick={() => setLocation("/orders")}
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    My Orders
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    data-testid="dropdown-logout"
+                    onClick={() => logoutMutation.mutate()}
+                    disabled={logoutMutation.isPending}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    {logoutMutation.isPending ? "Logging out..." : "Logout"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          {/* Mobile Navigation */}
+          <div className="md:hidden border-t border-gray-200 pt-2 pb-2">
+            <div className="flex justify-around">
+              {navigation.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <button
+                    key={item.name}
+                    data-testid={`mobile-nav-${item.name.toLowerCase().replace(' ', '-')}`}
+                    onClick={() => setLocation(item.href)}
+                    className={`${
+                      item.current ? "text-primary-600" : "text-gray-500"
+                    } flex flex-col items-center py-2 text-xs`}
+                  >
+                    <IconComponent className="h-5 w-5 mb-1" />
+                    {item.name}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </nav>
+      </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1">
         {children}
-      </div>
+      </main>
     </div>
   );
 }

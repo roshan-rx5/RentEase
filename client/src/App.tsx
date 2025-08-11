@@ -16,6 +16,8 @@ import AdminTransfers from "@/pages/admin/transfers";
 import CustomerCatalog from "@/pages/customer/catalog";
 import CustomerBooking from "@/pages/customer/booking";
 import CustomerOrders from "@/pages/customer/orders";
+import CustomerWishlist from "@/pages/customer/wishlist";
+import CustomerContact from "@/pages/customer/contact";
 import Checkout from "@/pages/checkout";
 
 function Router() {
@@ -55,6 +57,8 @@ function Router() {
               <Route path="/catalog" component={CustomerCatalog} />
               <Route path="/booking/:productId" component={CustomerBooking} />
               <Route path="/orders" component={CustomerOrders} />
+              <Route path="/wishlist" component={CustomerWishlist} />
+              <Route path="/contact" component={CustomerContact} />
             </>
           )}
           <Route path="/checkout/:orderId" component={Checkout} />

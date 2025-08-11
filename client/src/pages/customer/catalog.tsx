@@ -8,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Grid3X3, List, Search, SlidersHorizontal } from "lucide-react";
 import type { ProductWithCategory } from "@shared/schema";
 
 export default function CustomerCatalog() {
@@ -15,6 +18,9 @@ export default function CustomerCatalog() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedDates, setSelectedDates] = useState<{ from?: Date; to?: Date }>({});
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [priceRange, setPriceRange] = useState<{ min: string; max: string }>({ min: "", max: "" });
+  const [sortBy, setSortBy] = useState<string>("name");
 
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ["/api/products", selectedDates.from, selectedDates.to],
@@ -31,7 +37,7 @@ export default function CustomerCatalog() {
     queryKey: ["/api/categories"],
   });
 
-  // Filter products based on search and category
+  // Filter and sort products
   const filteredProducts = products?.filter((product: ProductWithCategory) => {
     const matchesSearch = !searchTerm || 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -39,7 +45,20 @@ export default function CustomerCatalog() {
     
     const matchesCategory = !selectedCategory || selectedCategory === "all" || product.categoryId === selectedCategory;
     
-    return matchesSearch && matchesCategory;
+    const matchesPrice = (!priceRange.min || parseFloat(product.dailyRate || "0") >= parseFloat(priceRange.min)) &&
+                         (!priceRange.max || parseFloat(product.dailyRate || "0") <= parseFloat(priceRange.max));
+    
+    return matchesSearch && matchesCategory && matchesPrice;
+  })?.sort((a: ProductWithCategory, b: ProductWithCategory) => {
+    switch (sortBy) {
+      case "price-low":
+        return parseFloat(a.dailyRate || "0") - parseFloat(b.dailyRate || "0");
+      case "price-high":
+        return parseFloat(b.dailyRate || "0") - parseFloat(a.dailyRate || "0");
+      case "name":
+      default:
+        return a.name.localeCompare(b.name);
+    }
   }) || [];
 
   const handleBookProduct = (productId: string) => {
@@ -56,148 +75,246 @@ export default function CustomerCatalog() {
 
   return (
     <CustomerLayout>
-      <div className="space-y-8">
-        {/* Hero Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg p-8">
-          <div className="max-w-4xl">
-            <h1 className="text-3xl font-bold mb-4">Browse Rental Equipment</h1>
-            <p className="text-blue-100 text-lg">
-              Find the perfect equipment for your needs. Select your dates and explore our catalog.
-            </p>
-          </div>
-        </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex gap-6">
+          {/* Left Sidebar - Product Attributes */}
+          <div className="w-64 flex-shrink-0">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <SlidersHorizontal className="h-5 w-5 mr-2" />
+                  Product attributes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Colors */}
+                <div>
+                  <h4 className="font-medium text-sm text-gray-700 mb-3">Colors</h4>
+                  <div className="space-y-2">
+                    <div className="text-sm text-gray-600">-</div>
+                    <div className="text-sm text-gray-600">-</div>
+                    <div className="text-sm text-gray-600">-</div>
+                  </div>
+                </div>
 
-        {/* Filters and Search */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Find Your Equipment</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Search Products
-                </label>
+                <Separator />
+
+                {/* Price Range */}
+                <div>
+                  <h4 className="font-medium text-sm text-gray-700 mb-3">Price range</h4>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Min"
+                        type="number"
+                        value={priceRange.min}
+                        onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
+                        data-testid="price-min-input"
+                      />
+                      <Input
+                        placeholder="Max"
+                        type="number"
+                        value={priceRange.max}
+                        onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
+                        data-testid="price-max-input"
+                      />
+                    </div>
+                    <div className="text-sm text-gray-600">-</div>
+                    <div className="text-sm text-gray-600">-</div>
+                    <div className="text-sm text-gray-600">-</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1">
+            {/* Category Filter Bar */}
+            <div className="flex gap-3 mb-6 overflow-x-auto">
+              <Button
+                variant={selectedCategory === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory("all")}
+                data-testid="category-all"
+              >
+                Category 1
+              </Button>
+              {Array.isArray(categories) && categories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(category.id)}
+                  data-testid={`category-${category.name.toLowerCase()}`}
+                >
+                  {category.name}
+                </Button>
+              ))}
+            </div>
+
+            {/* Search and Controls */}
+            <div className="flex gap-4 mb-6 items-center">
+              {/* Price List Dropdown */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-40" data-testid="sort-dropdown">
+                  <SelectValue placeholder="Price List" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="price-low">Price: Low to High</SelectItem>
+                  <SelectItem value="price-high">Price: High to Low</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Search Bar */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search equipment..."
+                  placeholder="Search products..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full"
+                  className="pl-10"
+                  data-testid="search-input"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category
-                </label>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {Array.isArray(categories) && categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quick Actions
-                </label>
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setSelectedCategory("all");
-                    setSelectedDates({});
-                  }}
+
+              {/* Sort Dropdown */}
+              <Select>
+                <SelectTrigger className="w-32" data-testid="sort-by-dropdown">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="price">Price</SelectItem>
+                  <SelectItem value="popular">Popular</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* View Toggle */}
+              <div className="flex border rounded-lg">
+                <Button
+                  variant={viewMode === "grid" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("grid")}
+                  className="rounded-r-none"
+                  data-testid="view-grid-button"
                 >
-                  <i className="fas fa-undo mr-2"></i>
-                  Clear Filters
+                  <Grid3X3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("list")}
+                  className="rounded-l-none"
+                  data-testid="view-list-button"
+                >
+                  <List className="h-4 w-4" />
                 </Button>
               </div>
             </div>
 
-            {/* Calendar */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Rental Dates (Optional)
-              </label>
-              <RentalCalendar
-                selected={selectedDates}
-                onSelect={setSelectedDates}
-                className="w-full"
-              />
-              {selectedDates.from && selectedDates.to && (
-                <p className="text-sm text-gray-600 mt-2">
-                  Selected: {selectedDates.from.toLocaleDateString()} - {selectedDates.to.toLocaleDateString()}
-                  ({Math.ceil((selectedDates.to.getTime() - selectedDates.from.getTime()) / (1000 * 60 * 60 * 24))} days)
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+            {/* Products Display */}
+            {productsLoading ? (
+              <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <div className={viewMode === "grid" ? "h-48 bg-gray-200 rounded-t-lg" : "h-24 bg-gray-200 rounded-l-lg"}></div>
+                    <CardContent className="p-4">
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded mb-4"></div>
+                      <div className="space-y-2">
+                        <div className="h-3 bg-gray-200 rounded"></div>
+                        <div className="h-3 bg-gray-200 rounded"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {searchTerm || selectedCategory !== "all" ? "No products found" : "No products available"}
+                  </h3>
+                  <p className="text-gray-600">
+                    {searchTerm || selectedCategory !== "all"
+                      ? "Try adjusting your search criteria or filters"
+                      : "Products will appear here when they become available"
+                    }
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {viewMode === "grid" ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="products-grid">
+                    {filteredProducts.map((product: ProductWithCategory) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        onBook={() => handleBookProduct(product.id)}
+                        selectedDates={selectedDates}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-4" data-testid="products-list">
+                    {filteredProducts.map((product: ProductWithCategory) => (
+                      <Card key={product.id} className="flex items-center p-4">
+                        <div className="w-20 h-20 bg-gray-100 rounded-lg mr-4 flex-shrink-0">
+                          {product.imageUrl ? (
+                            <img 
+                              src={product.imageUrl} 
+                              alt={product.name}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              <Grid3X3 className="h-8 w-8" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-medium text-gray-900">{product.name}</h3>
+                          <p className="text-sm text-gray-600 mt-1">{product.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-semibold text-gray-900">₹{product.dailyRate || 0}</div>
+                          <Button 
+                            size="sm" 
+                            className="mt-2"
+                            onClick={() => handleBookProduct(product.id)}
+                            data-testid={`add-to-cart-${product.id}`}
+                          >
+                            Add to Cart
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
 
-        {/* Products Grid */}
-        <div>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Available Equipment
-              {filteredProducts.length > 0 && (
-                <span className="text-gray-500 text-lg ml-2">
-                  ({filteredProducts.length} items)
-                </span>
-              )}
-            </h2>
+                {/* Pagination */}
+                <div className="flex justify-center mt-8">
+                  <div className="flex items-center space-x-2">
+                    <Button variant="outline" size="sm" disabled data-testid="pagination-prev">
+                      &lt;
+                    </Button>
+                    <Button variant="default" size="sm" data-testid="pagination-1">1</Button>
+                    <Button variant="outline" size="sm" data-testid="pagination-2">2</Button>
+                    <Button variant="outline" size="sm" data-testid="pagination-3">3</Button>
+                    <Button variant="outline" size="sm" data-testid="pagination-4">4</Button>
+                    <span className="text-sm text-gray-500">... 10</span>
+                    <Button variant="outline" size="sm" data-testid="pagination-next">
+                      &gt;
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
-
-          {productsLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <div className="h-48 bg-gray-200 rounded-t-lg"></div>
-                  <CardContent className="p-4">
-                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded mb-4"></div>
-                    <div className="space-y-2">
-                      <div className="h-3 bg-gray-200 rounded"></div>
-                      <div className="h-3 bg-gray-200 rounded"></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <i className="fas fa-search text-gray-300 text-6xl mb-4"></i>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {searchTerm || selectedCategory ? "No products found" : "No products available"}
-                </h3>
-                <p className="text-gray-600">
-                  {searchTerm || selectedCategory 
-                    ? "Try adjusting your search criteria or filters"
-                    : "Products will appear here when they become available"
-                  }
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product: ProductWithCategory) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onBook={() => handleBookProduct(product.id)}
-                  selectedDates={selectedDates}
-                />
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </CustomerLayout>
