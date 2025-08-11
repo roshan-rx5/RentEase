@@ -12,6 +12,9 @@ import {
   insertNotificationSchema,
   registerUserSchema,
   loginUserSchema,
+  insertInvoiceSchema,
+  insertDepositSchema,
+  insertPaymentSchema,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -393,6 +396,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error processing webhook:", error);
       res.status(500).json({ message: "Webhook processing failed" });
+    }
+  });
+
+  // Invoice management routes
+  app.get('/api/invoices', isAuthenticated, async (req, res) => {
+    try {
+      const customerId = req.user?.role === 'admin' ? undefined : req.user?.id;
+      const invoices = await storage.getInvoices(customerId);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  app.get('/api/invoices/:id', isAuthenticated, async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      if (req.user.role !== 'admin' && invoice.customerId !== req.user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error fetching invoice:", error);
+      res.status(500).json({ message: "Failed to fetch invoice" });
+    }
+  });
+
+  app.post('/api/invoices/generate/:orderId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const order = await storage.getOrder(req.params.orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      const existingInvoice = await storage.getInvoiceByOrder(req.params.orderId);
+      if (existingInvoice) {
+        return res.status(400).json({ message: "Invoice already exists for this order" });
+      }
+
+      const invoiceNumber = await storage.generateInvoiceNumber();
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+
+      const invoice = await storage.createInvoice({
+        invoiceNumber,
+        orderId: order.id,
+        customerId: order.customerId,
+        dueDate,
+        subtotal: order.totalAmount,
+        taxAmount: '0',
+        totalAmount: order.totalAmount,
+        status: 'sent'
+      });
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      res.status(500).json({ message: "Failed to generate invoice" });
+    }
+  });
+
+  app.post('/api/invoices/:id/pay', isAuthenticated, async (req, res) => {
+    try {
+      const { amount, paymentType = 'partial' } = req.body;
+      const invoice = await storage.getInvoice(req.params.id);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      if (req.user?.role !== 'admin' && invoice.customerId !== req.user?.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const paymentAmount = paymentType === 'full' ? Number(invoice.totalAmount) : amount;
+      
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(paymentAmount * 100),
+        currency: "inr",
+        metadata: {
+          invoiceId: invoice.id,
+          customerId: invoice.customerId,
+          type: 'invoice_payment'
+        }
+      });
+
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        amount: paymentAmount
+      });
+    } catch (error) {
+      console.error("Error creating payment for invoice:", error);
+      res.status(500).json({ message: "Failed to process payment" });
+    }
+  });
+
+  // Deposit payment route
+  app.post('/api/deposits/:orderId/pay', isAuthenticated, async (req, res) => {
+    try {
+      const order = await storage.getOrder(req.params.orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      if (req.user?.role !== 'admin' && order.customerId !== req.user?.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const depositAmount = order.securityDeposit || '0';
+      
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(Number(depositAmount) * 100),
+        currency: "inr",
+        metadata: {
+          orderId: order.id,
+          customerId: order.customerId,
+          type: 'security_deposit'
+        }
+      });
+
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        amount: Number(depositAmount)
+      });
+    } catch (error) {
+      console.error("Error creating deposit payment:", error);
+      res.status(500).json({ message: "Failed to process deposit payment" });
+    }
+  });
+
+  // Reports routes
+  app.get('/api/reports/revenue', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const end = endDate ? new Date(endDate as string) : new Date();
+      
+      const report = {
+        totalRevenue: 0,
+        rentalRevenue: 0,
+        depositRevenue: 0,
+        lateFeeRevenue: 0,
+        refundAmount: 0
+      };
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating revenue report:", error);
+      res.status(500).json({ message: "Failed to generate revenue report" });
+    }
+  });
+
+  app.get('/api/reports/products', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const report: any[] = [];
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating product report:", error);
+      res.status(500).json({ message: "Failed to generate product report" });
+    }
+  });
+
+  app.get('/api/reports/customers', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const report: any[] = [];
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating customer report:", error);
+      res.status(500).json({ message: "Failed to generate customer report" });
     }
   });
 

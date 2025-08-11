@@ -15,9 +15,8 @@ import CustomerLayout from "@/components/layout/customer-layout";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
 // recreating the `Stripe` object on every render.
-// Use placeholder Stripe key for development - replace with real key for production
-const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_placeholder';
-const stripePromise = loadStripe(stripeKey);
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 const CheckoutForm = ({ order }: { order: any }) => {
   const stripe = useStripe();
@@ -365,9 +364,38 @@ export default function Checkout() {
             </Card>
 
             {/* Payment Form */}
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <CheckoutForm order={order} />
-            </Elements>
+            <Card>
+              <CardHeader>
+                <CardTitle>Complete Payment</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center text-blue-800">
+                    <i className="fas fa-shield-alt mr-2"></i>
+                    <span className="text-sm">Your payment information is secure and encrypted</span>
+                  </div>
+                </div>
+                {!stripeKey ? (
+                  <div className="text-center py-8">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <i className="fas fa-credit-card text-yellow-600 mr-2"></i>
+                        <div>
+                          <h4 className="text-sm font-medium text-yellow-900">Payment Configuration Required</h4>
+                          <p className="text-sm text-yellow-700">
+                            Stripe integration is not configured. Please contact support.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+                    <CheckoutForm order={order} />
+                  </Elements>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

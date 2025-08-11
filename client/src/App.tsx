@@ -12,7 +12,9 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminProducts from "@/pages/admin/products";
 import AdminOrders from "@/pages/admin/orders";
 import AdminCustomers from "@/pages/admin/customers";
+import AdminInvoices from "@/pages/admin/invoices";
 import AdminTransfers from "@/pages/admin/transfers";
+import InvoicePayment from "@/pages/invoice-payment";
 import CustomerCatalog from "@/pages/customer/catalog";
 import CustomerBooking from "@/pages/customer/booking";
 import CustomerOrders from "@/pages/customer/orders";
@@ -49,6 +51,7 @@ function Router() {
               <Route path="/admin/products" component={AdminProducts} />
               <Route path="/admin/orders" component={AdminOrders} />
               <Route path="/admin/customers" component={AdminCustomers} />
+              <Route path="/admin/invoices" component={AdminInvoices} />
               <Route path="/admin/transfers" component={AdminTransfers} />
             </>
           ) : (
@@ -62,6 +65,7 @@ function Router() {
             </>
           )}
           <Route path="/checkout/:orderId" component={Checkout} />
+          <Route path="/invoice-payment/:invoiceId" component={InvoicePayment} />
         </>
       )}
       <Route component={NotFound} />
