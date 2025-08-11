@@ -146,7 +146,7 @@ export default function EnhancedBookingForm({ product, onComplete, className = "
         }]
       };
 
-      const response = await apiRequest("POST", "/api/orders", orderData);
+      const response = await apiRequest("/api/orders", "POST", orderData);
       return response;
     },
     onSuccess: (order) => {

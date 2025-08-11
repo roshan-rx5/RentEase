@@ -44,7 +44,7 @@ export default function AdminOrders() {
 
   const updateOrderMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      await apiRequest("PUT", `/api/orders/${id}`, { status });
+      await apiRequest(`/api/orders/${id}`, "PUT", { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });

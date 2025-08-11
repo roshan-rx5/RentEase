@@ -33,7 +33,7 @@ export default function Register() {
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterUser) => {
-      return await apiRequest("POST", "/api/auth/register", data);
+      return await apiRequest("/api/auth/register", "POST", data);
     },
     onSuccess: (user) => {
       if (user.requiresOtp) {

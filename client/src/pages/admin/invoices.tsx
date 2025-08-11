@@ -25,7 +25,7 @@ export default function AdminInvoices() {
 
   const generateInvoiceMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const response = await apiRequest("POST", `/api/invoices/generate/${orderId}`);
+      const response = await apiRequest(`/api/invoices/generate/${orderId}`, "POST");
       return response.json();
     },
     onSuccess: () => {
@@ -46,7 +46,7 @@ export default function AdminInvoices() {
 
   const payInvoiceMutation = useMutation({
     mutationFn: async ({ invoiceId, amount, paymentType }: { invoiceId: string; amount?: number; paymentType: 'partial' | 'full' }) => {
-      const response = await apiRequest("POST", `/api/invoices/${invoiceId}/pay`, {
+      const response = await apiRequest(`/api/invoices/${invoiceId}/pay`, "POST", {
         amount,
         paymentType
       });

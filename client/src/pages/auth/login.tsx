@@ -29,7 +29,7 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginUser) => {
-      return await apiRequest("POST", "/api/auth/login", data);
+      return await apiRequest("/api/auth/login", "POST", data);
     },
     onSuccess: (user) => {
       if (user.requiresOtp) {

@@ -67,9 +67,9 @@ export default function ProductForm({ product, categories, onSuccess }: ProductF
       };
 
       if (product) {
-        await apiRequest("PUT", `/api/products/${product.id}`, payload);
+        await apiRequest(`/api/products/${product.id}`, "PUT", payload);
       } else {
-        await apiRequest("POST", "/api/products", payload);
+        await apiRequest("/api/products", "POST", payload);
       }
     },
     onSuccess: () => {

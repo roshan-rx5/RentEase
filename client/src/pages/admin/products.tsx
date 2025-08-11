@@ -65,7 +65,7 @@ export default function AdminProducts() {
 
   const createProductMutation = useMutation({
     mutationFn: async (productData: any) => {
-      await apiRequest("POST", "/api/products", productData);
+      await apiRequest("/api/products", "POST", productData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -99,7 +99,7 @@ export default function AdminProducts() {
 
   const updateProductMutation = useMutation({
     mutationFn: async ({ id, ...productData }: any) => {
-      await apiRequest("PUT", `/api/products/${id}`, productData);
+      await apiRequest(`/api/products/${id}`, "PUT", productData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });

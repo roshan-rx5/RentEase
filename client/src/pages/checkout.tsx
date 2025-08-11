@@ -108,7 +108,7 @@ export default function Checkout() {
 
   const createPaymentMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/create-payment-intent", {
+      const response = await apiRequest("/api/create-payment-intent", "POST", {
         amount: Number(order?.totalAmount || 0),
         orderId: order?.id || "",
       });

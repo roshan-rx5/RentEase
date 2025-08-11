@@ -27,7 +27,7 @@ function PaymentForm({ invoiceId, amount, paymentType, onSuccess }: PaymentFormP
 
   useEffect(() => {
     // Create payment intent
-    apiRequest('POST', `/api/invoices/${invoiceId}/pay`, {
+    apiRequest(`/api/invoices/${invoiceId}/pay`, 'POST', {
       amount,
       paymentType
     })
