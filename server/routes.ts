@@ -99,6 +99,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Handle GET requests to logout (redirect to proper POST method)
+  app.get('/api/auth/logout', (req, res) => {
+    res.status(405).json({ 
+      message: "Method not allowed. Use POST to /api/auth/logout to logout.",
+      allowedMethods: ["POST"]
+    });
+  });
+
   app.post('/api/auth/logout', (req, res) => {
     req.logout((err) => {
       if (err) {
