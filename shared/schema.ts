@@ -390,11 +390,34 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  startDate: z.union([z.string(), z.date()]).transform((val) => 
+    typeof val === 'string' ? new Date(val) : val
+  ),
+  endDate: z.union([z.string(), z.date()]).transform((val) => 
+    typeof val === 'string' ? new Date(val) : val
+  ),
+  totalAmount: z.union([z.string(), z.number()]).transform((val) => 
+    typeof val === 'number' ? val.toString() : val
+  ),
+  securityDeposit: z.union([z.string(), z.number(), z.null(), z.undefined()]).optional().transform((val) => 
+    val !== null && val !== undefined ? (typeof val === 'number' ? val.toString() : val) : val
+  ),
+  lateReturnFee: z.union([z.string(), z.number(), z.null(), z.undefined()]).optional().transform((val) => 
+    val !== null && val !== undefined ? (typeof val === 'number' ? val.toString() : val) : val
+  ),
 });
 
 export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
   id: true,
   createdAt: true,
+}).extend({
+  unitRate: z.union([z.string(), z.number()]).transform((val) => 
+    typeof val === 'number' ? val.toString() : val
+  ),
+  totalAmount: z.union([z.string(), z.number()]).transform((val) => 
+    typeof val === 'number' ? val.toString() : val
+  ),
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
