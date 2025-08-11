@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
+import Login from "@/pages/auth/login";
+import Register from "@/pages/auth/register";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminProducts from "@/pages/admin/products";
 import AdminOrders from "@/pages/admin/orders";
@@ -29,12 +31,17 @@ function Router() {
   return (
     <Switch>
       {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
+        <>
+          <Route path="/" component={Landing} />
+          <Route path="/login" component={Login} />
+          <Route path="/register" component={Register} />
+        </>
       ) : (
         <>
           {user?.role === 'admin' ? (
             <>
               <Route path="/" component={AdminDashboard} />
+              <Route path="/admin" component={AdminDashboard} />
               <Route path="/admin/dashboard" component={AdminDashboard} />
               <Route path="/admin/products" component={AdminProducts} />
               <Route path="/admin/orders" component={AdminOrders} />

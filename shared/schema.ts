@@ -55,13 +55,12 @@ export const paymentStatusEnum = pgEnum('payment_status', [
 // Users table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  role: userRoleEnum("role").default('customer').notNull(),
+  email: varchar("email").unique().notNull(),
+  password: varchar("password").notNull(),
+  name: varchar("name").notNull(),
   phone: varchar("phone"),
   address: text("address"),
+  role: userRoleEnum("role").default('customer').notNull(),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -196,6 +195,22 @@ export const insertUserSchema = createInsertSchema(users).omit({
   updatedAt: true,
 });
 
+export const registerUserSchema = insertUserSchema.omit({
+  role: true,
+  stripeCustomerId: true,
+  stripeSubscriptionId: true,
+}).extend({
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+export const loginUserSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
 export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
   createdAt: true,
@@ -225,6 +240,8 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
+export type RegisterUser = z.infer<typeof registerUserSchema>;
+export type LoginUser = z.infer<typeof loginUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;

@@ -1,6 +1,9 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface CustomerLayoutProps {
   children: React.ReactNode;
@@ -9,6 +12,25 @@ interface CustomerLayoutProps {
 export default function CustomerLayout({ children }: CustomerLayoutProps) {
   const { user } = useAuth();
   const [location, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/auth/logout", "POST");
+    },
+    onSuccess: () => {
+      queryClient.removeQueries();
+      window.location.href = "/";
+    },
+    onError: () => {
+      toast({
+        title: "Logout Error",
+        description: "Failed to logout properly",
+        variant: "destructive",
+      });
+    },
+  });
 
   const navigation = [
     { name: "Catalog", href: "/catalog", icon: "fas fa-box", current: location === "/" || location === "/catalog" },
@@ -39,22 +61,23 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
                     />
                   ) : (
                     <span className="text-white font-semibold text-sm">
-                      {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                      {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                     </span>
                   )}
                 </div>
                 <span className="text-sm">
-                  {user?.firstName} {user?.lastName}
+                  {user?.name || user?.email}
                 </span>
               </div>
               <Button 
                 variant="secondary"
                 size="sm"
-                onClick={() => window.location.href = '/api/logout'}
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
                 className="bg-white text-primary-500 hover:bg-primary-50"
               >
                 <i className="fas fa-sign-out-alt mr-2"></i>
-                Logout
+                {logoutMutation.isPending ? "Logging out..." : "Logout"}
               </Button>
             </div>
           </div>

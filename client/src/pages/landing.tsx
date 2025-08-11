@@ -14,12 +14,19 @@ export default function Landing() {
                 <h1 className="text-xl font-bold text-gray-900">RentFlow</h1>
               </div>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-4">
               <Button 
-                onClick={() => window.location.href = '/api/login'}
-                className="bg-blue-600 hover:bg-blue-700"
+                variant="outline"
+                onClick={() => window.location.href = '/login'}
+                className="text-blue-600 border-blue-600 hover:bg-blue-50"
               >
                 Sign In
+              </Button>
+              <Button 
+                onClick={() => window.location.href = '/register'}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Sign Up
               </Button>
             </div>
           </div>
@@ -37,14 +44,22 @@ export default function Landing() {
             Streamline your entire rental process with our comprehensive platform. 
             Manage products, schedule pickups, process payments, and delight customers.
           </p>
-          <div className="mt-10">
+          <div className="mt-10 space-x-4">
             <Button 
-              onClick={() => window.location.href = '/api/login'}
+              onClick={() => window.location.href = '/register'}
               size="lg"
               className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-3"
             >
               Get Started
               <i className="fas fa-arrow-right ml-2"></i>
+            </Button>
+            <Button 
+              onClick={() => window.location.href = '/login'}
+              size="lg"
+              variant="outline"
+              className="text-blue-600 border-blue-600 hover:bg-blue-50 text-lg px-8 py-3"
+            >
+              Sign In
             </Button>
           </div>
         </div>
